@@ -55,6 +55,34 @@ app.post('/transactions', (req, res) => {
     res.json(newTransaction); // отправляем обратно созданную запись
 });
 
+// DELETE /transactions/:id
+app.delete('/transactions/:id', (req, res) => {
+    const transactions = readData();
+
+    // Получаем ID из адреса запроса
+    const id = Number(req.params.id);
+
+    // Проверяем существует ли транзакция
+    const transaction = transactions.find(t => t.id === id);
+
+    if(!transaction) {
+        return res.status(404).json({
+            message: 'Transaction not found'
+        })
+    }
+
+    // Удаляем транзакцию из массива
+    const updateTransactions = transactions.filter(t => t.id !== id);
+
+    // Сохраняем изменения
+    writeData(updateTransactions);
+
+    res.json({
+        message: 'Transaction deleted successfully'
+    })
+
+});
+
 // 9. Запускаем сервер и говорим об этом в консоли
 app.listen(PORT, () => {
     console.log(`Сервер запущен на порту ${PORT}`);

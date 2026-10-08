@@ -63,6 +63,10 @@ async function loadTransactions() {
                             <strong>${t.desc}</strong> (${t.category})
                         </span>
                         <span>${t.amount} €</span>
+
+                        <button onclick="deleteTransaction(${t.id})">
+                            🗑️ Удалить
+                        </button>
                     </div>
                 `;
             });
@@ -80,6 +84,33 @@ async function loadTransactions() {
     } catch (error) {
         console.error('Ошибка загрузки данных:', error);
         alert('Не удалось загрузить данные. Проверь, запущен ли сервер!');
+    }
+}
+
+// Удаляем транзакцию по ID
+async function deleteTransaction(id) {
+    // Спрашиваем подтверждение
+    const confirmed = confirm('Удалить эту транзакцию?')
+
+    if(!confirmed) {
+        return;
+    }
+
+    try {
+        // Отправляем DELETE на сервер
+        const response = await fetch(`${API_URL}/${id}`, {
+            method: 'DELETE'
+        });
+        // Проверяем ответ сервера
+        if(!response.ok) {
+            throw new Error('Ошибка удаления транзакции');
+        }
+
+        await loadTransactions();
+
+    } catch(error) {
+        console.error('Ошибка удаления:', error);
+        alert('Не удалось удалить транзакцию');
     }
 }
 
