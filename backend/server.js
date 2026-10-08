@@ -55,7 +55,7 @@ app.post('/transactions', (req, res) => {
     res.json(newTransaction); // отправляем обратно созданную запись
 });
 
-// DELETE /transactions/:id
+// 9. DELETE /transactions/:id
 app.delete('/transactions/:id', (req, res) => {
     const transactions = readData();
 
@@ -83,7 +83,37 @@ app.delete('/transactions/:id', (req, res) => {
 
 });
 
-// 9. Запускаем сервер и говорим об этом в консоли
+// 10. PUT /transactions/:id
+// Обновляем существующую транзакцию
+app.put('/transactions/:id', (req, res) => {
+    const transactions = readData();
+
+    // Получаем ID из URL
+    const id = Number(req.params.id);
+
+    // Ищем нужную транзакцию
+    const transaction = transactions.find(t => t.id === id);
+
+    if(!transaction) {
+        return res.status(404).json({
+            message: 'Transaction not found'
+        })
+    }
+
+    // Обновляем данные
+    transaction.date = req.body.date ?? transaction.date;
+    transaction.desc = req.body.desc ?? transaction.desc;
+    transaction.amount = req.body.amount ?? transaction.amount;
+    transaction.category = req.body.category ?? transaction.category;
+
+    // Сохраняем изменения
+    writeData(transactions);
+
+    // Возвращаем обновлённую транзакцию
+    res.json(transaction);
+});
+
+// 11. Запускаем сервер и говорим об этом в консоли
 app.listen(PORT, () => {
     console.log(`Сервер запущен на порту ${PORT}`);
 });
