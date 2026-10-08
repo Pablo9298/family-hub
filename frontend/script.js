@@ -1,6 +1,17 @@
 // Адрес нашего сервера (он работает на порту 3001)
 const API_URL = 'http://localhost:3001/transactions';
 
+// Устанавливаем сегодняшнюю дату при открытии страницы
+const today = new Date();
+
+const localDate = [
+    today.getFullYear(),
+    String(today.getMonth() + 1).padStart(2, '0'),
+    String(today.getDate()).padStart(2, '0')
+].join('-');
+
+document.getElementById('date').value = localDate;
+
 // Функция для загрузки и отображения всех транзакций
 async function loadTransactions() {
     try {
@@ -162,6 +173,11 @@ async function addTransaction() {
         console.error('Ошибка добавления:', error);
         alert('Не удалось добавить запись. Проверь, запущен ли сервер!');
     }
+}
+
+// Изменяем транзакцию по ID
+async function updateTransactions(id) {
+    
 }
 
 // Загружаем транзакции при загрузке страницы
