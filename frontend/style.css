@@ -1,0 +1,93 @@
+body {
+    font-family: Arial, sans-serif;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+    background-color: #f5f5f5;
+}
+
+h1 {
+    color: #333;
+    text-align: center;
+}
+
+#form-container {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+input {
+    padding: 8px;
+    margin: 5px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+button {
+    padding: 8px 16px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+button:hover {
+    background-color: #45a049;
+}
+
+#transactions-container {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.transaction-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+.transaction-item:last-child {
+    border-bottom: none;
+}
+
+#total {
+    text-align: right;
+    color: #333;
+    margin-top: 20px;
+}
+
+.month-block {
+    margin-bottom: 25px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #e0e0e0;
+}
+
+.month-block h3 {
+    color: #2c3e50;
+    margin-bottom: 10px;
+    background-color: #ecf0f1;
+    padding: 5px 10px;
+    border-radius: 4px;
+}
+
+.date {
+    color: #7f8c8d;
+    font-size: 0.9em;
+    margin-right: 10px;
+}
+
+.month-total {
+    text-align: right;
+    font-weight: bold;
+    margin-top: 10px;
+    padding: 8px;
+    background-color: #f9f9f9;
+    border-radius: 4px;
+}
