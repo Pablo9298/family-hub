@@ -1,7 +1,14 @@
-// Адрес нашего сервера (он работает на порту 3001)
+
+ // Адрес нашего сервера
 const API_URL = 'http://localhost:3001/transactions';
 
-// Устанавливаем сегодняшнюю дату при открытии страницы
+// ID транзакции, которую сейчас редактируем
+let editingTransactionId = null;
+
+// =====================================================
+// 1. УСТАНАВЛИВАЕМ СЕГОДНЯШНЮЮ ДАТУ
+// =====================================================
+
 const today = new Date();
 
 const localDate = [
@@ -12,10 +19,19 @@ const localDate = [
 
 document.getElementById('date').value = localDate;
 
-// Функция для загрузки и отображения всех транзакций
+
+// =====================================================
+// 2. ЗАГРУЖАЕМ И ОТОБРАЖАЕМ ТРАНЗАКЦИИ
+// =====================================================
+
 async function loadTransactions() {
     try {
         const response = await fetch(API_URL);
+
+        if (!response.ok) {
+            throw new Error('Ошибка загрузки транзакций');
+        }
+
         const transactions = await response.json();
 
         const list = document.getElementById('transaction-list');
@@ -27,21 +43,22 @@ async function loadTransactions() {
             return;
         }
 
-        // 1. Группируем транзакции по месяцам
+        // Группируем транзакции по месяцам
         const groups = {};
+
         transactions.forEach(t => {
-            // Из даты (2026-09-08) получаем месяц (2026-09)
             const monthKey = t.date.substring(0, 7);
+
             if (!groups[monthKey]) {
                 groups[monthKey] = [];
             }
+
             groups[monthKey].push(t);
         });
 
-        // 2. Сортируем месяцы (от старых к новым)
+        // Сортируем месяцы от старых к новым
         const sortedMonths = Object.keys(groups).sort();
 
-        // 3. Строим HTML
         let totalOverall = 0;
         let html = '';
 
@@ -49,23 +66,34 @@ async function loadTransactions() {
             const monthTransactions = groups[monthKey];
             let monthTotal = 0;
 
-            // Название месяца (Сентябрь 2026)
+            // Формируем название месяца
             const [year, month] = monthKey.split('-');
-            const monthName = new Date(year, month - 1).toLocaleString('ru', { month: 'long' });
+
+            const monthName = new Date(
+                Number(year),
+                Number(month) - 1
+            ).toLocaleString('ru', { month: 'long' });
+
             const monthTitle = `${monthName} ${year}`;
 
-            // Начинаем блок месяца
-            html += `<div class="month-block"><h3>📅 ${monthTitle}</h3>`;
+            html += `
+                <div class="month-block">
+                    <h3>📅 ${monthTitle}</h3>
+            `;
 
-            // Сортируем транзакции внутри месяца по дате (от старых к новым)
-            monthTransactions.sort((a, b) => a.date.localeCompare(b.date));
+            // Сортируем транзакции по дате
+            monthTransactions.sort((a, b) =>
+                a.date.localeCompare(b.date)
+            );
 
             monthTransactions.forEach(t => {
                 monthTotal += t.amount;
                 totalOverall += t.amount;
 
-                // Форматируем дату для отображения (08.09.2026)
-                const displayDate = t.date.split('-').reverse().join('.');
+                const displayDate = t.date
+                    .split('-')
+                    .reverse()
+                    .join('.');
 
                 html += `
                     <div class="transaction-item">
@@ -73,7 +101,12 @@ async function loadTransactions() {
                             <span class="date">${displayDate}</span>
                             <strong>${t.desc}</strong> (${t.category})
                         </span>
+
                         <span>${t.amount} €</span>
+
+                        <button onclick="openEditDialog(${t.id})">
+                            ✏️ Редактировать
+                        </button>
 
                         <button onclick="deleteTransaction(${t.id})">
                             🗑️ Удалить
@@ -82,73 +115,54 @@ async function loadTransactions() {
                 `;
             });
 
-            // Итог по месяцу
-            html += `<div class="month-total">Итого за месяц: <strong>${monthTotal} €</strong></div>`;
-            html += `</div>`; // Закрываем month-block
+            html += `
+                <div class="month-total">
+                    Итого за месяц:
+                    <strong>${monthTotal} €</strong>
+                </div>
+            `;
+
+            html += '</div>';
         });
 
-        // Вставляем список
         list.innerHTML = html;
 
-        // Общий итог
-        totalElement.textContent = `💰 Общий итог за всё время: ${totalOverall} €`;
+        totalElement.textContent =
+            `💰 Общий итог за всё время: ${totalOverall} €`;
+
     } catch (error) {
-        console.error('Ошибка загрузки данных:', error);
-        alert('Не удалось загрузить данные. Проверь, запущен ли сервер!');
+        console.error('Ошибка загрузки:', error);
+        alert('Не удалось загрузить транзакции');
     }
 }
 
-// Удаляем транзакцию по ID
-async function deleteTransaction(id) {
-    // Спрашиваем подтверждение
-    const confirmed = confirm('Удалить эту транзакцию?')
 
-    if(!confirmed) {
-        return;
-    }
+// =====================================================
+// 3. ДОБАВЛЯЕМ НОВУЮ ТРАНЗАКЦИЮ (POST)
+// =====================================================
 
-    try {
-        // Отправляем DELETE на сервер
-        const response = await fetch(`${API_URL}/${id}`, {
-            method: 'DELETE'
-        });
-        // Проверяем ответ сервера
-        if(!response.ok) {
-            throw new Error('Ошибка удаления транзакции');
-        }
-
-        await loadTransactions();
-
-    } catch(error) {
-        console.error('Ошибка удаления:', error);
-        alert('Не удалось удалить транзакцию');
-    }
-}
-
-// Функция для добавления новой транзакции
 async function addTransaction() {
-    // Получаем значения из полей ввода
     const date = document.getElementById('date').value;
-    const desc = document.getElementById('desc').value;
-    const amount = parseFloat(document.getElementById('amount').value);
-    const category = document.getElementById('category').value;
+    const desc = document.getElementById('desc').value.trim();
+    const amountValue = document.getElementById('amount').value;
+    const amount = Number(amountValue);
+    const category = document.getElementById('category').value.trim();
 
-    // Простейшая проверка: все поля должны быть заполнены
-    if (!desc || isNaN(amount) || !category) {
+    // Проверяем данные
+    if (!date || !desc || amountValue === '' ||
+        !Number.isFinite(amount) || !category) {
         alert('Пожалуйста, заполни все поля!');
         return;
     }
 
-    // Формируем объект с данными
     const transaction = {
-        date: date,
-        desc: desc,
-        amount: amount,
-        category: category
+        date,
+        desc,
+        amount,
+        category
     };
 
     try {
-        // Отправляем POST-запрос к серверу
         const response = await fetch(API_URL, {
             method: 'POST',
             headers: {
@@ -157,28 +171,199 @@ async function addTransaction() {
             body: JSON.stringify(transaction)
         });
 
-        // Если сервер вернул ошибку
         if (!response.ok) {
-            throw new Error('Ошибка при добавлении записи');
+            throw new Error('Ошибка добавления транзакции');
         }
 
-        // Очищаем поля ввода
+        // Очищаем поля после добавления
         document.getElementById('desc').value = '';
         document.getElementById('amount').value = '';
         document.getElementById('category').value = '';
 
-        // Перезагружаем список транзакций
         await loadTransactions();
+
     } catch (error) {
         console.error('Ошибка добавления:', error);
-        alert('Не удалось добавить запись. Проверь, запущен ли сервер!');
+        alert('Не удалось добавить транзакцию');
     }
 }
 
-// Изменяем транзакцию по ID
-async function updateTransactions(id) {
-    
+
+// =====================================================
+// 4. УДАЛЯЕМ ТРАНЗАКЦИЮ (DELETE)
+// =====================================================
+
+async function deleteTransaction(id) {
+    const confirmed = confirm('Удалить эту транзакцию?');
+
+    if (!confirmed) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_URL}/${id}`, {
+            method: 'DELETE'
+        });
+
+        if (!response.ok) {
+            throw new Error('Ошибка удаления транзакции');
+        }
+
+        await loadTransactions();
+
+    } catch (error) {
+        console.error('Ошибка удаления:', error);
+        alert('Не удалось удалить транзакцию');
+    }
 }
 
-// Загружаем транзакции при загрузке страницы
+
+// =====================================================
+// 5. ОТКРЫВАЕМ ОКНО РЕДАКТИРОВАНИЯ
+// =====================================================
+
+async function openEditDialog(id) {
+    try {
+        // Получаем актуальные транзакции
+        const response = await fetch(API_URL);
+
+        if (!response.ok) {
+            throw new Error('Ошибка загрузки транзакций');
+        }
+
+        const transactions = await response.json();
+
+        // Находим выбранную транзакцию
+        const transaction = transactions.find(t => t.id === id);
+
+        if (!transaction) {
+            alert('Транзакция не найдена');
+            return;
+        }
+
+        // Запоминаем ID редактируемой транзакции
+        editingTransactionId = id;
+
+        // Заполняем форму текущими данными
+        document.getElementById('edit-date').value =
+            transaction.date;
+
+        document.getElementById('edit-desc').value =
+            transaction.desc;
+
+        document.getElementById('edit-amount').value =
+            transaction.amount;
+
+        document.getElementById('edit-category').value =
+            transaction.category;
+
+        // Открываем модальное окно
+        document.getElementById('edit-dialog').showModal();
+
+    } catch (error) {
+        console.error('Ошибка открытия редактирования:', error);
+        alert('Не удалось открыть редактирование');
+    }
+}
+
+
+// =====================================================
+// 6. СОХРАНЯЕМ ИЗМЕНЕНИЯ (PUT)
+// =====================================================
+
+document.getElementById('edit-form').addEventListener(
+    'submit',
+    async (event) => {
+
+        // Запрещаем стандартную отправку формы
+        event.preventDefault();
+
+        if (editingTransactionId === null) {
+            alert('Не выбрана транзакция для редактирования');
+            return;
+        }
+
+        // Получаем изменённые значения
+        const date = document.getElementById('edit-date').value;
+
+        const desc = document.getElementById('edit-desc')
+            .value.trim();
+
+        const amountValue = document.getElementById('edit-amount')
+            .value;
+
+        const amount = Number(amountValue);
+
+        const category = document.getElementById('edit-category')
+            .value.trim();
+
+        // Проверяем данные
+        if (!date || !desc || amountValue === '' ||
+            !Number.isFinite(amount) || !category) {
+            alert('Пожалуйста, заполни все поля!');
+            return;
+        }
+
+        // Формируем обновлённую транзакцию
+        const updatedTransaction = {
+            date,
+            desc,
+            amount,
+            category
+        };
+
+        try {
+            // Отправляем изменения на сервер
+            const response = await fetch(
+                `${API_URL}/${editingTransactionId}`,
+                {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(updatedTransaction)
+                }
+            );
+
+            if (!response.ok) {
+                throw new Error('Ошибка обновления транзакции');
+            }
+
+            // Закрываем модальное окно
+            document.getElementById('edit-dialog').close();
+
+            // Сбрасываем ID
+            editingTransactionId = null;
+
+            // Загружаем обновлённый список
+            await loadTransactions();
+
+            // Временное уведомление
+            alert('Транзакция успешно изменена!');
+
+        } catch (error) {
+            console.error('Ошибка сохранения:', error);
+            alert('Не удалось сохранить изменения');
+        }
+    }
+);
+
+
+// =====================================================
+// 7. КНОПКА «ОТМЕНА»
+// =====================================================
+
+document.getElementById('cancel-edit').addEventListener(
+    'click',
+    () => {
+        document.getElementById('edit-dialog').close();
+        editingTransactionId = null;
+    }
+);
+
+
+// =====================================================
+// 8. ЗАГРУЖАЕМ ДАННЫЕ ПРИ ОТКРЫТИИ СТРАНИЦЫ
+// =====================================================
+
 loadTransactions();
