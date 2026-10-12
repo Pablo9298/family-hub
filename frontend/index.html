@@ -3,59 +3,113 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Семейный бюджет</title>
+    <meta name="theme-color" content="#101526">
+    <title>Family Hub — семейные финансы</title>
+    <script>
+        // Ставим тему до отрисовки, чтобы избежать мигания
+        const savedTheme = localStorage.getItem('familyhub-theme');
+        document.documentElement.dataset.theme = savedTheme ||
+            (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    </script>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- Заголовок -->
-    <h1>💰 Семейный бюджет</h1>
-
-    <!-- Форма для добавления новой записи -->
-    <div id="form-container">
-        <h2>Добавить расход/доход</h2>
-        <input type="date" id="date">
-        <input type="text" id="desc" placeholder="На что потратили? (например, Стрижка)">
-        <input type="number" id="amount" placeholder="Сумма в евро">
-        <input type="text" id="category" placeholder="Категория (например, Личное)">
-        <button onclick="addTransaction()">Добавить</button>
-    </div>
-
-    <!-- Место для списка транзакций -->
-    <div id="transactions-container">
-        <h2>Все транзакции</h2>
-        <div id="transaction-list"></div>
-        <h3 id="total">Итого: 0 €</h3>
-    </div>
-
-    <dialog id="edit-dialog">
-        <h2>✏️ Редактировать транзакцию</h2>
-
-        <form id="edit-form">
-
-            <label for="edit-date">Дата</label>
-            <input type="date" id="edit-date" required>
-
-            <label for="edit-desc">Описание</label>
-            <input type="text" id="edit-desc" required>
-
-            <label for="edit-amount">Сумма (€)</label>
-            <input type="number" id="edit-amount" step="0.01" required>
-
-            <label for="edit-category">Категория</label>
-            <input type="text" id="edit-category" required>
-
-            <div class="dialog-buttons">
-                <button type="button" id="cancel-edit">
-                    Отмена
-                </button>
-
-                <button type="submit">
-                    Сохранить
-                </button>
+    <div class="app-shell">
+        <header class="app-header">
+            <a class="brand" href="#top" aria-label="Family Hub — на главную">
+                <span class="brand-icon">◈</span>
+                <span>Family<span class="brand-accent">Hub</span><small>Семейные финансы</small></span>
+            </a>
+            <div class="header-actions">
+                <span class="header-note">Ваш финансовый обзор</span>
+                <button id="theme-toggle" class="icon-button" type="button" aria-label="Переключить тему" title="Переключить тему">☾</button>
             </div>
-        </form>   
+        </header>
+
+        <main id="top">
+            <section class="page-heading">
+                <div>
+                    <p class="eyebrow">ЛИЧНОЕ ПРОСТРАНСТВО</p>
+                    <h1>Семейный бюджет</h1>
+                    <p class="muted">Все операции и планы в одном месте.</p>
+                </div>
+                <span class="live-pill"><span class="live-dot"></span> Family Hub · MVP</span>
+            </section>
+
+            <section class="summary-grid" aria-label="Обзор бюджета">
+                <article class="summary-card main-summary">
+                    <div class="summary-caption">Общий итог за всё время</div>
+                    <div id="summary-balance" class="summary-value">0,00 €</div>
+                    <div class="summary-foot">Сумма всех введённых операций</div>
+                </article>
+                <article class="summary-card">
+                    <div class="summary-caption">Операций</div>
+                    <div id="summary-count" class="summary-value">0</div>
+                    <div class="summary-foot">Всего записей</div>
+                </article>
+                <article class="summary-card">
+                    <div class="summary-caption">Текущий месяц</div>
+                    <div id="summary-month" class="summary-value">0,00 €</div>
+                    <div class="summary-foot" id="summary-month-name">—</div>
+                </article>
+            </section>
+
+            <div class="content-grid">
+                <section id="form-container" class="panel">
+                    <div class="panel-heading">
+                        <div><p class="eyebrow">НОВАЯ ЗАПИСЬ</p><h2>Добавить операцию</h2></div>
+                        <span class="heading-icon">＋</span>
+                    </div>
+                    <p class="muted panel-intro">Для расходов указывай сумму со знаком минус, для доходов — со знаком плюс.</p>
+                    <form id="add-form">
+                        <div class="field"><label for="date">Дата</label><input type="date" id="date" required></div>
+                        <div class="field"><label for="desc">Описание</label><input type="text" id="desc" placeholder="Например, продукты" required></div>
+                        <div class="field"><label for="amount">Сумма (€)</label><input type="number" id="amount" step="0.01" placeholder="Например, -42.50" required></div>
+                        <div class="field"><label for="category">Категория</label><input type="text" id="category" placeholder="Например, Продукты" required></div>
+                        <button type="submit" class="btn btn-primary btn-full">＋ Добавить операцию</button>
+                    </form>
+                </section>
+
+                <section id="transactions-container" class="panel">
+                    <div class="panel-heading">
+                        <div><p class="eyebrow">ИСТОРИЯ</p><h2>Транзакции</h2></div>
+                        <span class="heading-icon">↗</span>
+                    </div>
+                    <div id="transaction-list" aria-live="polite"></div>
+                    <div id="total" class="total-line">Итого: 0,00 €</div>
+                </section>
+            </div>
+        </main>
+        <footer class="app-footer">Family Hub <span>·</span> Сделано для удобного семейного бюджета</footer>
+    </div>
+
+    <dialog id="edit-dialog" class="modal">
+        <div class="modal-heading">
+            <div><p class="eyebrow">ИЗМЕНЕНИЕ ЗАПИСИ</p><h2>Редактировать операцию</h2></div>
+            <button type="button" class="icon-button" id="close-edit" aria-label="Закрыть">×</button>
+        </div>
+        <form id="edit-form">
+            <div class="field"><label for="edit-date">Дата</label><input type="date" id="edit-date" required></div>
+            <div class="field"><label for="edit-desc">Описание</label><input type="text" id="edit-desc" required></div>
+            <div class="field"><label for="edit-amount">Сумма (€)</label><input type="number" id="edit-amount" step="0.01" required></div>
+            <div class="field"><label for="edit-category">Категория</label><input type="text" id="edit-category" required></div>
+            <div class="dialog-buttons">
+                <button type="button" class="btn btn-secondary" id="cancel-edit">Отмена</button>
+                <button type="submit" class="btn btn-primary">Сохранить изменения</button>
+            </div>
+        </form>
     </dialog>
 
+    <dialog id="delete-dialog" class="modal small-modal">
+        <div class="modal-heading"><div><p class="eyebrow">ПОДТВЕРЖДЕНИЕ</p><h2>Удалить операцию?</h2></div></div>
+        <p id="delete-description" class="muted">Эту операцию нельзя будет восстановить.</p>
+        <div class="dialog-buttons">
+            <button type="button" class="btn btn-secondary" id="cancel-delete">Отмена</button>
+            <button type="button" class="btn btn-danger" id="confirm-delete">Да, удалить</button>
+        </div>
+    </dialog>
+
+    <div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="true"></div>
     <script src="script.js"></script>
 </body>
 </html>
