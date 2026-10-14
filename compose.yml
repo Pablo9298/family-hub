@@ -1,0 +1,21 @@
+
+services:
+  db:
+    image: postgres:17
+    container_name: family-hub-db
+
+    environment:
+      POSTGRES_USER: familyhub
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: family_hub
+
+    ports:
+      - "127.0.0.1:5432:5432"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
