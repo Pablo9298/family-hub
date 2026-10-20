@@ -16,6 +16,7 @@ import { createTransaction, updateTransaction, deleteTransaction } from './api.j
 import { $, money, showToast, initTheme } from './ui.js';
 import { formatDate, initFilters } from './filters.js';
 import { loadTransactions, renderTransactions, findTransaction } from './transactions.js';
+import { initCategorySuggestions, renderCategorySuggestions, refreshCategories } from './categories.js';
 
 // ID транзакций, над которыми сейчас открыто модальное окно.
 // null = редактирование/удаление сейчас не выбрано.
@@ -65,6 +66,9 @@ async function addTransaction() {
         $('category').value = '';
         await loadTransactions(); // Получаем свежие записи из PostgreSQL.
         showToast('Операция добавлена');
+        // Обновим подсказки, если backend только что создал категорию.
+        // Ошибка загрузки подсказок не отменяет уже сохранённую операцию.
+        refreshCategories().catch(error => console.error('GET categories:', error));
     } catch (error) {
         console.error('POST:', error);
         showToast('Не удалось добавить или обновить список операций', 'error');
@@ -123,6 +127,10 @@ function openEditDialog(id) {
     );
     if (editTypeInput) editTypeInput.checked = true;
 
+    // Программное .checked = true НЕ вызывает событие change.
+    // Поэтому вручную обновляем подсказки для типа этой транзакции.
+    renderCategorySuggestions('edit-');
+
     $('edit-dialog').showModal();
 }
 
@@ -140,6 +148,7 @@ async function saveEdit() {
         $('edit-dialog').close();
         await loadTransactions();
         showToast('Изменения сохранены');
+        refreshCategories().catch(error => console.error('GET categories:', error));
     } catch (error) {
         console.error('PUT:', error);
         showToast('Не удалось сохранить или обновить изменения', 'error');
@@ -196,6 +205,14 @@ async function initApp() {
     // При изменении фильтров вызываем renderTransactions() без GET.
     initFilters(renderTransactions);
     initTransactionEvents();
+    initCategorySuggestions(); // Слушаем переключение Доход/Расход в обеих формах.
+
+    // Загрузка списка категорий независима от загрузки операций:
+    // если подсказки недоступны, ручной ввод по-прежнему работает.
+    refreshCategories().catch(error => {
+        console.error('Первоначальная загрузка категорий:', error);
+        showToast('Категории не загрузились; можно вводить их вручную', 'error');
+    });
 
     try {
         await loadTransactions(); // Первый GET при открытии страницы.

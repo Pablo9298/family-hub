@@ -12,7 +12,9 @@
 
 // Сейчас backend запускается локально на порту 3001.
 // Перед публичным релизом адрес нужно будет сделать настраиваемым.
-const API_URL = 'http://localhost:3001/transactions';
+// Один базовый адрес для всех маршрутов backend.
+const API_BASE = 'http://localhost:3001';
+const API_URL = `${API_BASE}/transactions`;
 
 // Вспомогательная функция для обработки HTTP-ошибок.
 // fetch() НЕ бросает ошибку автоматически при ответах 400/404/500:
@@ -73,4 +75,19 @@ export async function deleteTransaction(id) {
     });
 
     return readResponse(response);
+}
+
+// GET /categories: получаем все категории из PostgreSQL.
+// Ответ: [{ id: 1, name: 'продукты', type: 'expense' }, ...].
+// Категории загружаются один раз при запуске и после изменения транзакций.
+export async function getCategories() {
+    const response = await fetch(`${API_BASE}/categories`);
+    const categories = await readResponse(response);
+
+    // Не позволяем некорректному ответу сервера попасть в UI.
+    if (!Array.isArray(categories)) {
+        throw new Error('Сервер вернул не массив категорий');
+    }
+
+    return categories;
 }

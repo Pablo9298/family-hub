@@ -48,6 +48,12 @@ const cors = require('cors');
 // Именно pool отправляет SQL-запросы в PostgreSQL.
 const pool = require('./db');
 
+// Функции для работы с категориями.
+const {
+    findOrCreateCategory,
+    normalizeCategory
+} = require('./categories');
+
 
 // =====================================================
 // 2. СОЗДАЁМ ПРИЛОЖЕНИЕ EXPRESS
@@ -82,6 +88,57 @@ app.use(cors());
 const PORT = 3001;
 
 
+/*
+ * =====================================================
+ * GET /categories — ПОЛУЧЕНИЕ СПИСКА КАТЕГОРИЙ
+ * =====================================================
+ *
+ * Когда frontend отправляет GET /categories,
+ * Express выполняет SQL-запрос к PostgreSQL.
+ *
+ * Пример ответа:
+ *
+ * [
+ *   { id: 1, name: 'продукты', type: 'expense' },
+ *   { id: 2, name: 'зарплата', type: 'income' }
+ * ]
+ */
+app.get('/categories', async (req, res) => {
+
+    // try/catch помогает обработать возможные ошибки
+    // подключения или выполнения SQL-запроса.
+    try {
+
+        // pool.query() отправляет SQL-запрос в PostgreSQL.
+        const result = await pool.query(`
+                SELECT id, name, type
+                FROM categories
+                ORDER BY type, name
+            `);
+
+        // PostgreSQL BIGINT через библиотеку pg
+        // обычно возвращается строкой.
+        //
+        // map() создаёт новый массив, преобразуя ID в Number.
+        const categories = result.rows.map(category => ({
+            ...category,
+            id: Number(category.id)
+        }));
+
+        // Отправляем результат frontend в формате JSON.
+        return res.json(categories);
+    } catch (error) {
+        // Подробности ошибки выводим только в терминал backend.
+        console.error('GET categories error:', error);
+
+        // Клиенту возвращаем понятное сообщение.
+        return res.status(500).json({
+            message: 'Failed to load categories'
+        });
+    }
+})
+
+
 // =====================================================
 // 5. GET /transactions — ПОЛУЧЕНИЕ ТРАНЗАКЦИЙ
 // =====================================================
@@ -101,25 +158,39 @@ app.get('/transactions', async (req, res) => {
         // await дожидается результата, не блокируя весь сервер.
         const result = await pool.query(`
             SELECT
-                id,
+                -- id берём из таблицы транзакций.
+                t.id,
 
-                -- Преобразуем DATE в строку YYYY-MM-DD.
-                -- Это помогает избежать сдвига даты из-за часового пояса.
-                TO_CHAR(date, 'YYYY-MM-DD') AS date,
+                -- Преобразуем дату в строку YYYY-MM-DD.
+                TO_CHAR(t.date, 'YYYY-MM-DD') AS date,
 
-                -- В PostgreSQL столбец называется description.
-                -- Наш frontend ожидает свойство desc.
-                -- AS переименовывает его только в результате запроса.
-                description AS "desc",
+                -- В базе поле называется description,
+                -- а frontend ожидает desc.
+                t.description AS "desc",
 
-                amount,
-                category,
-                type
+                -- Сумма и тип операции.
+                t.amount,
+                t.type,
 
-            FROM transactions
+                -- Название берём из таблицы categories.
+                -- AS category сохраняет привычное имя свойства
+                -- в JSON-ответе для нашего frontend.
+                c.name AS category
 
-            -- Возвращаем записи по возрастанию ID.
-            ORDER BY id
+            -- t — сокращённое имя таблицы transactions.
+            FROM transactions AS t
+
+            -- c — сокращённое имя таблицы categories.
+            -- INNER JOIN объединяет две таблицы.
+            INNER JOIN categories AS c
+
+                -- Условие соединения:
+                -- категория транзакции должна совпасть
+                -- с ID записи в таблице categories.
+                ON t.category_id = c.id
+
+            -- Сортируем операции по ID.
+            ORDER BY t.id
         `);
 
         // result — объект ответа библиотеки pg.
@@ -159,122 +230,168 @@ app.get('/transactions', async (req, res) => {
 });
 
 
-// =====================================================
-// 6. POST /transactions — СОЗДАНИЕ ТРАНЗАКЦИИ
-// =====================================================
 
-// Этот обработчик вызывается, когда клиент отправляет
-// HTTP POST на /transactions.
+/*
+ * =====================================================
+ * POST /transactions — ДОБАВЛЕНИЕ НОВОЙ ОПЕРАЦИИ
+ * =====================================================
+ *
+ * Пример данных от frontend:
+ *
+ * {
+ *     date: '2026-10-19',
+ *     desc: 'Покупка в Lidl',
+ *     amount: 25.50,
+ *     category: 'ПроДукТы',
+ *     type: 'expense'
+ * }
+ *
+ * Задачи backend:
+ * 1. Проверить данные.
+ * 2. Найти или создать категорию "продукты".
+ * 3. Получить ID этой категории.
+ * 4. Сохранить транзакцию с category_id.
+ * 5. Вернуть созданную операцию frontend.
+ */
+
+// Регистрируем маршрут POST /transactions.
 app.post('/transactions', async (req, res) => {
 
+    // Достаём данные из тела HTTP-запроса.
+    const { date, desc, amount, category, type } = req.body ?? {};
+
+    // Преобразуем сумму в число.
+    const parsedAmount = Number(amount);
+
+    // Проверяем дату в формате YYYY-MM-DD.
+    const validDate =
+        typeof date === 'string' &&
+        /^\d{4}-\d{2}-\d{2}$/.test(date) &&
+        !Number.isNaN(new Date(`${date}T00:00:00Z`).getTime()) &&
+        new Date(`${date}T00:00:00Z`)
+            .toISOString()
+            .slice(0, 10) === date;
+
+    // Проверяем все обязательные поля.
+    if (
+        !validDate ||
+        typeof desc !== 'string' ||
+        !desc.trim() ||
+        typeof category !== 'string' ||
+        !normalizeCategory(category) ||
+        !['income', 'expense'].includes(type) ||
+        amount === undefined ||
+        amount === null ||
+        typeof amount === 'boolean' ||
+        (typeof amount === 'string' && !amount.trim()) ||
+        !Number.isFinite(parsedAmount) ||
+        parsedAmount <= 0 ||
+        parsedAmount > 9999999999.99 ||
+        !Number.isInteger(Math.round(parsedAmount * 100)) ||
+        Math.abs(
+            parsedAmount * 100 - Math.round(parsedAmount * 100)
+        ) > 0.000001
+    ) {
+        return res.status(400).json({
+            message: 'Invalid transaction data'
+        });
+    }
+
+    // Пока соединение не получено.
+    let client;
+
     try {
+        // Берём отдельное соединение из Pool.
+        client = await pool.connect();
 
-        // Достаём нужные свойства из req.body.
-        // Это называется деструктуризацией объекта.
-        //
-        // Например:
-        // req.body = { desc: 'Кофе', amount: 4.50, ... }
-        const { date, desc, amount, category, type } = req.body;
+        // Начинаем SQL-транзакцию.
+        // Дальнейшие изменения пока не подтверждены.
+        await client.query('BEGIN');
 
-        // Преобразуем полученную сумму в число.
-        const parsedAmount = Number(amount);
+        // Ищем категорию или создаём новую.
+        // Передаём client, чтобы запрос использовал
+        // ту же SQL-транзакцию.
+        const categoryRecord = await findOrCreateCategory(
+            category,
+            type,
+            client
+        );
 
-        // Проверяем обязательные поля перед записью в базу.
-        if (
-            // Дата обязательна.
-            !date ||
+        // Получаем ID категории.
+        const categoryId = categoryRecord.id;
 
-            // Описание должно быть строкой.
-            typeof desc !== 'string' ||
+        // Сохраняем финансовую операцию.
+        // Здесь category_id заменяет старый столбец category.
+        const result = await client.query(
+            `
+            INSERT INTO transactions
+                (date, description, amount, category_id, type)
 
-            // trim() убирает пробелы по краям.
-            // Пустое описание запрещено.
-            !desc.trim() ||
+            VALUES ($1, $2, $3, $4, $5)
 
-            // Категория должна быть строкой.
-            typeof category !== 'string' ||
-
-            // Пустая категория запрещена.
-            !category.trim() ||
-
-            // Сумма должна присутствовать.
-            amount === undefined ||
-            amount === null ||
-            amount === '' ||
-
-            // Сумма должна преобразовываться в конечное число.
-            !Number.isFinite(parsedAmount) ||
-
-            // Для нашей модели сумма должна быть положительной.
-            parsedAmount <= 0 ||
-
-            // type может быть только income или expense.
-            !['income', 'expense'].includes(type)
-        ) {
-
-            // 400 Bad Request: клиент прислал неверные данные.
-            // return завершает обработчик, чтобы код ниже
-            // не попытался выполнить INSERT.
-            return res.status(400).json({
-                message: 'Invalid transaction data'
-            });
-        }
-
-        // Отправляем параметризованный INSERT в PostgreSQL.
-        const result = await pool.query(
-            `INSERT INTO transactions
-                (date, description, amount, category, type)
-
-             -- $1 ... $5 получают значения из массива ниже.
-             -- Значения передаются отдельно от SQL-кода.
-             VALUES ($1, $2, $3, $4, $5)
-
-             -- RETURNING возвращает созданную строку.
-             RETURNING
+            RETURNING
                 id,
                 TO_CHAR(date, 'YYYY-MM-DD') AS date,
                 description AS "desc",
                 amount,
-                category,
-                type`,
-
-            // Первый элемент массива соответствует $1,
-            // второй — $2 и так далее.
-            [
-                date,
-                desc.trim(),
-                parsedAmount,
-                category.trim(),
                 type
+            `,
+            [
+                date,               // $1
+                desc.trim(),        // $2
+                parsedAmount,       // $3
+                categoryId,         // $4
+                type                // $5
             ]
         );
 
-        // INSERT создал одну транзакцию.
-        // Получаем её из первой строки результата.
+        // Если все запросы прошли успешно,
+        // подтверждаем изменения в PostgreSQL.
+        await client.query('COMMIT');
+
+        // Получаем созданную строку.
         const transaction = result.rows[0];
 
-        // 201 Created означает успешное создание записи.
+        // Отправляем результат frontend.
+        // category возвращаем как текст,
+        // чтобы существующий интерфейс работал без изменений.
         return res.status(201).json({
-
-            // Копируем поля созданной транзакции.
             ...transaction,
-
-            // Преобразуем ID и сумму в числа.
             id: Number(transaction.id),
-            amount: Number(transaction.amount)
+            amount: Number(transaction.amount),
+            category: categoryRecord.name
         });
 
     } catch (error) {
 
-        // Показываем ошибку в терминале разработчика.
-        console.error('POST error:', error);
+        // Если SQL-транзакция началась,
+        // отменяем незавершённые изменения.
+        if (client) {
+            try {
+                await client.query('ROLLBACK');
+            } catch (rollbackError) {
+                console.error('ROLLBACK error:', rollbackError);
+            }
+        }
 
-        // Возвращаем клиенту сообщение о серверной ошибке.
+        // Подробности записываем в терминал backend.
+        console.error('POST transaction error:', error);
+
+        // Пользователю возвращаем общую ошибку.
         return res.status(500).json({
             message: 'Failed to create transaction'
         });
+
+    } finally {
+
+        // ОБЯЗАТЕЛЬНО возвращаем соединение в Pool.
+        // Это выполняется и при успехе, и при ошибке.
+        if (client) {
+            client.release();
+        }
     }
 });
+
 
 
 // =====================================================
@@ -342,241 +459,364 @@ app.delete('/transactions/:id', async (req, res) => {
 });
 
 
-// =====================================================
-// 8. PUT /transactions/:id — ОБНОВЛЕНИЕ ТРАНЗАКЦИИ
-// =====================================================
 
-// Этот обработчик позволяет менять уже существующую запись.
-//
-// Например:
-// PUT /transactions/1
-//
-// Тело запроса:
-// { "amount": 75.50 }
-//
-// При этом остальные поля должны остаться прежними.
+/*
+ * =====================================================
+ * PUT /transactions/:id — РЕДАКТИРОВАНИЕ ТРАНЗАКЦИИ
+ * =====================================================
+ *
+ * Пример запроса:
+ *
+ * PUT /transactions/11
+ *
+ * {
+ *     "amount": 30,
+ *     "category": "ПРОДУКТЫ"
+ * }
+ *
+ * Основная логика:
+ *
+ * 1. Проверяем ID и новые данные.
+ * 2. Получаем существующую транзакцию.
+ * 3. Определяем итоговую категорию и тип операции.
+ * 4. Находим или создаём соответствующую категорию.
+ * 5. Обновляем запись в PostgreSQL.
+ * 6. Подтверждаем изменения через COMMIT.
+ *
+ * Всё выполняем в одной SQL-транзакции.
+ */
+
 app.put('/transactions/:id', async (req, res) => {
+
+    // =================================================
+    // 1. ПРОВЕРЯЕМ ID ТРАНЗАКЦИИ
+    // =================================================
+
+    // req.params.id получаем из адреса /transactions/:id.
+    // Например, из /transactions/11 получим строку "11".
+    const id = Number(req.params.id);
+
+    if (!Number.isSafeInteger(id) || id <= 0) {
+        return res.status(400).json({
+            message: 'Invalid transaction ID'
+        });
+    }
+
+    // =================================================
+    // 2. ПОЛУЧАЕМ ДАННЫЕ ИЗ ТЕЛА ЗАПРОСА
+    // =================================================
+
+    // express.json() преобразует JSON в объект req.body.
+    //
+    // Если body отсутствует, используем пустой объект.
+    const { date, desc, amount, category, type } = req.body ?? {};
+
+    // =================================================
+    // 3. ПРОВЕРЯЕМ ОПИСАНИЕ
+    // =================================================
+
+    // undefined означает, что поле не передавали.
+    // В таком случае оставим прежнее описание.
+    //
+    // Но если поле передано, оно должно быть
+    // непустой строкой.
+    if (
+        desc !== undefined &&
+        (typeof desc !== 'string' || !desc.trim())
+    ) {
+        return res.status(400).json({
+            message: 'Invalid description'
+        });
+    }
+
+    // =================================================
+    // 4. ПРОВЕРЯЕМ КАТЕГОРИЮ
+    // =================================================
+
+    // Нормализуем только переданное название.
+    // Например: "  ПроДукТы  " -> "продукты".
+    //
+    // Если category не передана, пока оставляем
+    // undefined: старое название получим из базы.
+    const normalizedCategoryName = category === undefined
+        ? undefined
+        : normalizeCategory(category);
+
+    if (
+        category !== undefined &&
+        !normalizedCategoryName
+    ) {
+        return res.status(400).json({
+            message: 'Invalid category'
+        });
+    }
+
+    // =================================================
+    // 5. ПРОВЕРЯЕМ ТИП ОПЕРАЦИИ
+    // =================================================
+
+    if (
+        type !== undefined &&
+        !['income', 'expense'].includes(type)
+    ) {
+        return res.status(400).json({
+            message: 'Invalid transaction type'
+        });
+    }
+
+    // =================================================
+    // 6. ПРОВЕРЯЕМ СУММУ
+    // =================================================
+
+    // Если amount отсутствует, не изменяем сумму.
+    //
+    // В противном случае преобразуем значение в число.
+    const parsedAmount = amount === undefined
+        ? null
+        : Number(amount);
+
+    if (
+        amount !== undefined &&
+        (
+            amount === null ||
+            typeof amount === 'boolean' ||
+            (
+                typeof amount === 'string' &&
+                !amount.trim()
+            ) ||
+            !Number.isFinite(parsedAmount) ||
+            parsedAmount <= 0 ||
+            parsedAmount > 9999999999.99 ||
+
+            // NUMERIC(12,2) хранит максимум
+            // два знака после десятичного разделителя.
+            Math.abs(
+                parsedAmount * 100 -
+                Math.round(parsedAmount * 100)
+            ) > 0.000001
+        )
+    ) {
+        return res.status(400).json({
+            message: 'Invalid transaction amount'
+        });
+    }
+
+    // =================================================
+    // 7. ПРОВЕРЯЕМ ДАТУ
+    // =================================================
+
+    if (date !== undefined) {
+
+        // Проверяем формат YYYY-MM-DD.
+        if (
+            typeof date !== 'string' ||
+            !/^\d{4}-\d{2}-\d{2}$/.test(date)
+        ) {
+            return res.status(400).json({
+                message: 'Invalid transaction date'
+            });
+        }
+
+        // Проверяем, что календарная дата существует.
+        // Например, 2026-02-30 должна быть отклонена.
+        const parsedDate = new Date(`${date}T00:00:00Z`);
+
+        if (
+            Number.isNaN(parsedDate.getTime()) ||
+            parsedDate.toISOString().slice(0, 10) !== date
+        ) {
+            return res.status(400).json({
+                message: 'Invalid transaction date'
+            });
+        }
+    }
+
+    // =================================================
+    // 8. ПОЛУЧАЕМ СОЕДИНЕНИЕ С POSTGRESQL
+    // =================================================
+
+    // Пока соединение не получено.
+    let client;
 
     try {
 
-        // Получаем ID из адреса запроса.
-        const id = Number(req.params.id);
+        // Берём одно соединение из пула PostgreSQL.
+        client = await pool.connect();
 
-        // Проверяем корректность ID.
-        if (!Number.isSafeInteger(id) || id <= 0) {
-            return res.status(400).json({
-                message: 'Invalid transaction ID'
-            });
-        }
+        // Начинаем SQL-транзакцию.
+        await client.query('BEGIN');
 
-        // Получаем поля, которые клиент хочет изменить.
-        //
-        // Некоторые поля могут отсутствовать.
-        // В таком случае их значение будет undefined.
-        const { date, desc, amount, category, type } = req.body;
+        // =================================================
+        // 9. ПОЛУЧАЕМ СТАРЫЕ ДАННЫЕ
+        // =================================================
 
-        // -------------------------------------------------
-        // Проверяем description
-        // -------------------------------------------------
+        const existingResult = await client.query(
+            `
+            SELECT
+                t.id,
+                t.type,
+                c.name AS category
 
-        // Если описание передано, оно должно быть
-        // непустой строкой.
-        if (
-            desc !== undefined &&
-            (typeof desc !== 'string' || !desc.trim())
-        ) {
-            return res.status(400).json({
-                message: 'Invalid description'
-            });
-        }
+            FROM transactions AS t
 
-        // -------------------------------------------------
-        // Проверяем category
-        // -------------------------------------------------
+            INNER JOIN categories AS c
+                ON t.category_id = c.id
 
-        // Если категория передана, проверяем её тип
-        // и запрещаем пустые строки.
-        if (
-            category !== undefined &&
-            (typeof category !== 'string' || !category.trim())
-        ) {
-            return res.status(400).json({
-                message: 'Invalid category'
-            });
-        }
+            WHERE t.id = $1
 
-        // -------------------------------------------------
-        // Проверяем type
-        // -------------------------------------------------
-
-        // Если type не передан, сохраняем старое значение.
-        // Если передан — разрешаем только два значения.
-        if (
-            type !== undefined &&
-            !['income', 'expense'].includes(type)
-        ) {
-            return res.status(400).json({
-                message: 'Invalid transaction type'
-            });
-        }
-
-        // -------------------------------------------------
-        // Проверяем amount
-        // -------------------------------------------------
-
-        // Если сумма не передана, используем null.
-        // Позже COALESCE сохранит старую сумму.
-        //
-        // Если сумма передана, преобразуем её в число.
-        const parsedAmount = amount === undefined
-            ? null
-            : Number(amount);
-
-        // Проверяем сумму только тогда, когда она передана.
-        if (
-            amount !== undefined &&
-            (
-                // null запрещён как новая сумма.
-                amount === null ||
-
-                // true/false не должны считаться суммами.
-                typeof amount === 'boolean' ||
-
-                // Строка только из пробелов недопустима.
-                (
-                    typeof amount === 'string' &&
-                    !amount.trim()
-                ) ||
-
-                // Число должно быть конечным.
-                !Number.isFinite(parsedAmount) ||
-
-                // Сумма должна быть положительной.
-                parsedAmount <= 0 ||
-
-                // Ограничение размера NUMERIC(12, 2).
-                parsedAmount > 9999999999.99 ||
-
-                // Проверяем, что нет более двух знаков
-                // после запятой.
-                Math.round(parsedAmount * 100) !==
-                    parsedAmount * 100
-            )
-        ) {
-            return res.status(400).json({
-                message: 'Invalid transaction amount'
-            });
-        }
-
-        // -------------------------------------------------
-        // Проверяем date
-        // -------------------------------------------------
-
-        // Если дата не передана, оставляем старую.
-        if (date !== undefined) {
-
-            // Дата должна быть строкой формата YYYY-MM-DD.
-            if (
-                typeof date !== 'string' ||
-                !/^\d{4}-\d{2}-\d{2}$/.test(date)
-            ) {
-                return res.status(400).json({
-                    message: 'Invalid transaction date'
-                });
-            }
-
-            // Создаём объект Date для проверки реальности даты.
-            const parsedDate = new Date(`${date}T00:00:00Z`);
-
-            // Отвергаем несуществующие календарные даты.
-            if (
-                Number.isNaN(parsedDate.getTime()) ||
-                parsedDate.toISOString().slice(0, 10) !== date
-            ) {
-                return res.status(400).json({
-                    message: 'Invalid transaction date'
-                });
-            }
-        }
-
-        // -------------------------------------------------
-        // Выполняем UPDATE в PostgreSQL
-        // -------------------------------------------------
-
-        const result = await pool.query(
-            `UPDATE transactions
-
-             -- COALESCE берёт первое значение, если оно
-             -- не NULL, иначе оставляет значение из БД.
-             SET description = COALESCE($1, description),
-                 date = COALESCE($2, date),
-                 amount = COALESCE($3, amount),
-                 category = COALESCE($4, category),
-                 type = COALESCE($5, type)
-
-             -- Изменяем только строку с нужным ID.
-             WHERE id = $6
-
-             -- Возвращаем обновлённую запись.
-             RETURNING
-                 id,
-                 TO_CHAR(date, 'YYYY-MM-DD') AS date,
-                 description AS "desc",
-                 amount,
-                 category,
-                 type`,
-
-            // Значения массива соответствуют $1 ... $6.
-            [
-                // $1: описание либо null.
-                desc === undefined ? null : desc.trim(),
-
-                // $2: дата либо null.
-                date ?? null,
-
-                // $3: новая сумма либо null.
-                parsedAmount,
-
-                // $4: категория либо null.
-                category === undefined ? null : category.trim(),
-
-                // $5: тип либо null.
-                type ?? null,
-
-                // $6: ID обновляемой транзакции.
-                id
-            ]
+            -- Блокируем строку на время редактирования.
+            FOR UPDATE OF t
+            `,
+            [id]
         );
 
-        // Если UPDATE не нашёл строку, возвращаем 404.
-        if (result.rowCount === 0) {
+        // Если транзакция не существует,
+        // отменяем SQL-транзакцию и возвращаем 404.
+        if (existingResult.rowCount === 0) {
+
+            await client.query('ROLLBACK');
+
             return res.status(404).json({
                 message: 'Transaction not found'
             });
         }
 
-        // Получаем обновлённую строку из результата pg.
-        const transaction = result.rows[0];
+        // Получаем существующую транзакцию.
+        const existingTransaction = existingResult.rows[0];
 
-        // Отправляем обновлённую транзакцию frontend.
-        // Статус по умолчанию — 200 OK.
+        // =================================================
+        // 10. ОПРЕДЕЛЯЕМ ИТОГОВЫЕ ЗНАЧЕНИЯ
+        // =================================================
+
+        // Если новый type не пришёл,
+        // сохраняем прежний тип операции.
+        const finalType = type === undefined
+            ? existingTransaction.type
+            : type;
+
+        // Если новая категория не пришла,
+        // используем старое название.
+        const finalCategory = normalizedCategoryName === undefined
+            ? existingTransaction.category
+            : normalizedCategoryName;
+
+        // =================================================
+        // 11. НАХОДИМ ИЛИ СОЗДАЁМ КАТЕГОРИЮ
+        // =================================================
+
+        // Даже если пользователь изменил только тип
+        // expense -> income, функция найдёт или создаст
+        // категорию для нового типа.
+        //
+        // Например:
+        //
+        // category = "ремонт", type = "expense"
+        //                    |
+        //                    v
+        // category = "ремонт", type = "income"
+        //
+        // Это две разные категории в нашей системе.
+        const categoryRecord = await findOrCreateCategory(
+            finalCategory,
+            finalType,
+            client
+        );
+
+        // =================================================
+        // 12. ОБНОВЛЯЕМ ТРАНЗАКЦИЮ
+        // =================================================
+
+        const updateResult = await client.query(
+            `
+            UPDATE transactions
+
+            SET
+                -- COALESCE берёт новое значение,
+                -- если оно не NULL.
+                --
+                -- Иначе сохраняет старое значение.
+                description = COALESCE($1, description),
+                date = COALESCE($2, date),
+                amount = COALESCE($3, amount),
+
+                -- Категория теперь хранится по ID.
+                category_id = $4,
+
+                -- Тип берём с учётом изменений.
+                type = $5
+
+            WHERE id = $6
+
+            RETURNING
+                id,
+                TO_CHAR(date, 'YYYY-MM-DD') AS date,
+                description AS "desc",
+                amount,
+                type
+            `,
+            [
+                desc === undefined ? null : desc.trim(),
+                date === undefined ? null : date,
+                parsedAmount,
+                categoryRecord.id,
+                finalType,
+                id
+            ]
+        );
+
+        // =================================================
+        // 13. ПОДТВЕРЖДАЕМ ИЗМЕНЕНИЯ
+        // =================================================
+
+        await client.query('COMMIT');
+
+        // Получаем обновлённую запись.
+        const transaction = updateResult.rows[0];
+
+        // Возвращаем JSON в формате, который
+        // уже понимает наш frontend.
         return res.json({
             ...transaction,
             id: Number(transaction.id),
-            amount: Number(transaction.amount)
+            amount: Number(transaction.amount),
+            category: categoryRecord.name
         });
 
     } catch (error) {
 
-        // Записываем ошибку в терминал.
-        console.error('PUT error:', error);
+        // =================================================
+        // 14. ОТМЕНЯЕМ ИЗМЕНЕНИЯ ПРИ ОШИБКЕ
+        // =================================================
 
-        // Отправляем клиенту HTTP 500.
+        if (client) {
+            try {
+                await client.query('ROLLBACK');
+            } catch (rollbackError) {
+                console.error('ROLLBACK error:', rollbackError);
+            }
+        }
+
+        console.error('PUT transaction error:', error);
+
         return res.status(500).json({
             message: 'Failed to update transaction'
         });
+
+    } finally {
+
+        // =================================================
+        // 15. ОСВОБОЖДАЕМ СОЕДИНЕНИЕ
+        // =================================================
+
+        // Возвращаем соединение в Pool.
+        // Иначе при большом количестве запросов
+        // свободные соединения могут закончиться.
+        if (client) {
+            client.release();
+        }
     }
 });
+
 
 
 // =====================================================

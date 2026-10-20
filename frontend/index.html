@@ -4,10 +4,10 @@
 
     Этот файл описывает структуру интерфейса (HTML).
     Внешний вид задаёт frontend/style.css.
-    Поведение кнопок, форм, фильтров и запросы к API задаёт frontend/script.js.
+    Поведение кнопок, форм и фильтров задают модули frontend/js/.
 
     Важно: атрибуты id и name используются JavaScript.
-    Не меняй их без соответствующего изменения script.js.
+    Не меняй их без соответствующего изменения JS-модулей.
 -->
 <html lang="ru"> <!-- Язык страницы: русский -->
 
@@ -44,7 +44,7 @@
             </a>
             <div class="header-actions">
                 <span class="header-note">Ваш финансовый обзор</span>
-                <!-- script.js использует id="theme-toggle" для смены темы -->
+                <!-- JS-модули использует id="theme-toggle" для смены темы -->
                 <button id="theme-toggle" class="icon-button" type="button" aria-label="Переключить тему"
                     title="Переключить тему">☾</button>
             </div>
@@ -100,7 +100,7 @@
                 <!-- =================================================
                      5.1. ADD FORM — добавление дохода или расхода
 
-                     script.js слушает submit формы #add-form,
+                     JS-модули слушает submit формы #add-form,
                      читает выбранный тип, дату, описание, сумму и категорию,
                      затем отправляет POST /transactions на backend.
                      ================================================= -->
@@ -144,8 +144,16 @@
                                 placeholder="Например, продукты" required></div>
                         <div class="field"><label for="amount">Сумма (€)</label><input type="number" id="amount"
                                 min="0.01" step="0.01" placeholder="Например, 42.50" required></div>
-                        <div class="field"><label for="category">Категория</label><input type="text" id="category"
-                                placeholder="Например, Продукты" required></div>
+                        <!-- list связывает текстовый input со списком подсказок datalist.
+                             Пользователь НЕ обязан выбирать готовую категорию:
+                             можно написать новую, и backend создаст её при сохранении.
+                             Список <option> добавит js/categories.js. -->
+                        <div class="field">
+                            <label for="category">Категория</label>
+                            <input type="text" id="category" list="category-suggestions"
+                                placeholder="Например, продукты" autocomplete="off" required>
+                            <datalist id="category-suggestions"></datalist>
+                        </div>
                         <button type="submit" class="btn btn-primary btn-full">＋ Добавить операцию</button>
                     </form>
                 </section>
@@ -153,7 +161,7 @@
                 <!-- =================================================
                      5.2. HISTORY — фильтры и список транзакций
 
-                     script.js получает данные через GET /transactions,
+                     JS-модули получает данные через GET /transactions,
                      фильтрует их и вставляет карточки в #transaction-list.
                      ================================================= -->
                 <section id="transactions-container" class="panel">
@@ -260,7 +268,7 @@
     <!-- =============================================================
          7. EDIT DIALOG — модальное окно редактирования
 
-         При нажатии «Изменить» script.js открывает #edit-dialog,
+         При нажатии «Изменить» JS-модули открывает #edit-dialog,
          заполняет форму текущими данными и отправляет PUT /transactions/:id.
          ============================================================= -->
     <dialog id="edit-dialog" class="modal">
@@ -293,8 +301,14 @@
             <div class="field"><label for="edit-desc">Описание</label><input type="text" id="edit-desc" required></div>
             <div class="field"><label for="edit-amount">Сумма (€)</label><input type="number" id="edit-amount"
                     min="0.01" step="0.01" required></div>
-            <div class="field"><label for="edit-category">Категория</label><input type="text" id="edit-category"
-                    required></div>
+            <!-- У окна редактирования собственный datalist.
+                 Он фильтруется по выбранному edit-type, независимо от формы добавления. -->
+            <div class="field">
+                <label for="edit-category">Категория</label>
+                <input type="text" id="edit-category" list="edit-category-suggestions"
+                    autocomplete="off" required>
+                <datalist id="edit-category-suggestions"></datalist>
+            </div>
             <div class="dialog-buttons">
                 <button type="button" class="btn btn-secondary" id="cancel-edit">Отмена</button>
                 <button type="submit" class="btn btn-primary">Сохранить изменения</button>
@@ -305,7 +319,7 @@
     <!-- =============================================================
          8. DELETE DIALOG — подтверждение удаления
 
-         script.js показывает описание выбранной транзакции и только
+         JS-модули показывает описание выбранной транзакции и только
          после подтверждения отправляет DELETE /transactions/:id.
          ============================================================= -->
     <dialog id="delete-dialog" class="modal small-modal">
@@ -325,7 +339,7 @@
     <!-- =============================================================
          9. TOASTS — небольшие уведомления об успехе или ошибке
 
-         showToast() в script.js создаёт элементы внутри этого контейнера.
+         showToast() в JS-модули создаёт элементы внутри этого контейнера.
          ============================================================= -->
     <div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="true"></div>
     <!-- =============================================================

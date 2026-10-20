@@ -12,3 +12,10 @@ node_modules/
 
 # OS files
 .DS_Store
+
+# Старые локальные данные
+backend/data.json
+
+# Резервные копии PostgreSQL
+family_hub_backup.sql
+*.dump
