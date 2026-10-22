@@ -39,43 +39,69 @@ function normalizeCategory(name) {
 // 2. НАЙТИ ИЛИ СОЗДАТЬ КАТЕГОРИЮ
 // =====================================================
 
-async function findOrCreateCategory(name, type, db = pool) {
 
+/*
+ * Ищет или создаёт категорию
+ * ВНУТРИ конкретного финансового пространства.
+ *
+ * name        — название категории.
+ * type        — income или expense.
+ * workspaceId — ID пространства.
+ * db          — соединение PostgreSQL.
+ *
+ * db может быть:
+ * - обычным pool;
+ * - клиентом, полученным через pool.connect().
+ *
+ * Второй вариант нужен, когда категория создаётся
+ * внутри SQL-транзакции вместе с финансовой операцией.
+ */
+
+async function findOrCreateCategory(
+    name,
+    type,
+    workspaceId,
+    db = pool
+) {
     // Приводим название к единому формату.
+    // Например: "  ТРАНСПОРТ " → "транспорт".
     const normalizedName = normalizeCategory(name);
 
-    // Проверяем данные до обращения к базе.
-    if (
-        !normalizedName ||
-        !['income', 'expense'].includes(type)
-    ) {
-        throw new Error('Invalid category data');
-    }
-
-    // Отправляем параметризованный запрос.
+    // UPSERT:
+    //
+    // Если категория ещё не существует —
+    // PostgreSQL создаёт её.
+    //
+    // Если категория уже существует в этом
+    // пространстве с таким же типом —
+    // возвращает существующую.
     const result = await db.query(
         `
-        INSERT INTO categories (name, type)
+        INSERT INTO categories (
+            name,
+            type,
+            workspace_id
+        )
+        VALUES ($1, $2, $3)
 
-        -- $1 = название, $2 = тип.
-        VALUES ($1, $2)
+        ON CONFLICT (workspace_id, name, type)
+        DO UPDATE SET
+            name = EXCLUDED.name
 
-        -- Если такое сочетание уже есть,
-        -- не создаём дубликат.
-        ON CONFLICT (name, type)
-
-        -- Возвращаем существующую запись.
-        DO UPDATE SET name = EXCLUDED.name
-
-        -- Получаем ID категории.
-        RETURNING id, name, type
+        RETURNING id, name, type, workspace_id
         `,
-        [normalizedName, type]
+        [normalizedName, type, workspaceId]
     );
 
-    // Возвращаем объект категории.
-    return result.rows[0];
+    // Возвращаем созданную или найденную категорию.
+    return {
+        id: Number(result.rows[0].id),
+        name: result.rows[0].name,
+        type: result.rows[0].type,
+        workspace_id: Number(result.rows[0].workspace_id)
+    };
 }
+
 
 // =====================================================
 // 3. ЭКСПОРТ ФУНКЦИЙ

@@ -48,11 +48,22 @@ const cors = require('cors');
 // Именно pool отправляет SQL-запросы в PostgreSQL.
 const pool = require('./db');
 
+// Настройки серверных сессий.
+const sessionMiddleware = require('./session');
+
+// Маршруты авторизации через Google.
+const authRouter = require('./auth');
+
+// API для создания и управления пространствами.
+const workspaceRouter = require('./workspaces');
+
 // Функции для работы с категориями.
 const {
     findOrCreateCategory,
     normalizeCategory
 } = require('./categories');
+
+const workspaceTransactionsRouter = require('./workspaceTransactions');
 
 
 // =====================================================
@@ -68,15 +79,56 @@ const app = express();
 // 3. ПОДКЛЮЧАЕМ MIDDLEWARE
 // =====================================================
 
-// express.json() читает тело HTTP-запроса в формате JSON.
-// После этого отправленные данные становятся доступны
-// в req.body.
+
+// Читаем JSON-тело входящих запросов.
 app.use(express.json());
 
-// Разрешаем CORS-запросы.
-// Пока это удобно для локальной разработки.
-// Перед публикацией ограничим разрешённые источники.
-app.use(cors());
+// Разрешаем запросы только с нашего локального frontend.
+// Браузер сможет передавать cookie между портами 5500 и 3001.
+app.use(cors({
+    origin: 'http://localhost:5500',
+    credentials: true
+}));
+
+// Подключаем серверные сессии ДО маршрутов API.
+//
+// После этого в обработчиках запросов
+// будет доступен объект req.session.
+app.use(sessionMiddleware);
+
+// Все маршруты из auth.js будут начинаться с /auth.
+app.use('/auth', authRouter);
+
+// Все маршруты workspaces.js будут начинаться с /workspaces.
+app.use('/workspaces', workspaceRouter);
+
+// Защищённые маршруты финансовых операций.
+app.use('/workspaces', workspaceTransactionsRouter);
+
+
+/*
+ * =====================================================
+ * DISABLE LEGACY API
+ * =====================================================
+ *
+ * Раньше приложение работало без аккаунтов
+ * и отдельных финансовых пространств.
+ *
+ * Старые маршруты /transactions и /categories
+ * не проверяют права пользователя.
+ *
+ * Поэтому блокируем их до удаления старого кода.
+ *
+ * Важно: этот middleware должен находиться
+ * ПЕРЕД старыми маршрутами.
+ */
+
+app.use(['/transactions', '/categories'], (req, res) => {
+    return res.status(410).json({
+        error: 'Legacy API is disabled. Use workspace API.'
+    });
+});
+
 
 
 // =====================================================

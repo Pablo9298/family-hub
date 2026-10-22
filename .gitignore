@@ -18,4 +18,5 @@ backend/data.json
 
 # Резервные копии PostgreSQL
 family_hub_backup.sql
+family_hub_before_002.sql
 *.dump

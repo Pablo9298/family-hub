@@ -16,11 +16,55 @@
    нормализация регистра и проверка дубликатов выполняются backend.
    ========================================================== */
 
-import { getCategories } from './api.js';
+import { getCategories, getCurrentWorkspace } from './api.js';
 import { $ } from './ui.js';
 
 // Список в памяти браузера. Не заменяет базу данных.
 let allCategories = [];
+
+
+/*
+ * =====================================================
+ * ОЧИСТКА КАТЕГОРИЙ ПРИ СМЕНЕ WORKSPACE
+ * =====================================================
+ *
+ * В разных пространствах могут быть
+ * совершенно разные категории.
+ *
+ * Например:
+ *
+ * Наша семья:
+ * - продукты
+ * - коммунальные услуги
+ *
+ * Мотосервис:
+ * - запчасти
+ * - ремонт
+ *
+ * Поэтому при переключении очищаем подсказки.
+ */
+
+export function clearCategories() {
+
+    // Запоздавшие запросы не смогут
+    // восстановить старые категории.
+    categoriesLoadVersion++;
+
+    // Убираем категории предыдущего пространства
+    // из памяти браузера.
+    allCategories = [];
+
+    // Очищаем подсказки обеих форм.
+    renderCategorySuggestions();
+    renderCategorySuggestions('edit-');
+
+    // Также очищаем введённые значения категорий.
+    // Иначе в форме может остаться категория
+    // из предыдущего пространства.
+    $('category').value = '';
+    $('edit-category').value = '';
+}
+
 
 // Смотрим, какой тип операции выбран в конкретной форме.
 // prefix === '' — форма добавления (name="type").
@@ -52,13 +96,33 @@ export function renderCategorySuggestions(prefix = '') {
     }
 }
 
+let categoriesLoadVersion = 0;
+
 // После GET обновляем общий список и ОБЕ формы.
 // Если новая категория появилась после POST/PUT, она будет в подсказках.
+
 export async function refreshCategories() {
-    allCategories = await getCategories();
+
+    const version = ++categoriesLoadVersion;
+    const workspaceId = getCurrentWorkspace();
+
+    const categories = await getCategories();
+
+    // Игнорируем ответ, если пространство сменилось
+    // либо уже началась более новая загрузка.
+    if (
+        version !== categoriesLoadVersion ||
+        workspaceId !== getCurrentWorkspace()
+    ) {
+        return;
+    }
+
+    allCategories = categories;
+
     renderCategorySuggestions();
     renderCategorySuggestions('edit-');
 }
+
 
 // При смене типа операции пересчитываем подсказки.
 // Например, 'зарплата' не предлагается для expense.

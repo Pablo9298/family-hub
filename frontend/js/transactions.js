@@ -11,7 +11,7 @@
    а переключатель «Все / Расходы / Доходы» меняет ИСТОРИЮ.
    ========================================================== */
 
-import { getTransactions } from './api.js';
+import { getTransactions, getCurrentWorkspace } from './api.js';
 import { $, money, escapeHTML } from './ui.js';
 import { getSelectedDateRange, getSelectedType, filterByPeriod } from './filters.js';
 
@@ -19,12 +19,66 @@ import { getSelectedDateRange, getSelectedType, filterByPeriod } from './filters
 // Она сохраняется между вызовами функций, пока открыта страница.
 let allTransactions = [];
 
-// Запрашиваем свежие данные (после открытия страницы и каждого CRUD).
-// Ошибку здесь не скрываем: вызывающий main.js покажет уведомление.
-export async function loadTransactions() {
-    allTransactions = await getTransactions();
+
+/*
+ * =====================================================
+ * ОЧИСТКА ТРАНЗАКЦИЙ ПРИ СМЕНЕ WORKSPACE
+ * =====================================================
+ *
+ * При переключении финансового пространства
+ * удаляем из памяти операции предыдущего.
+ *
+ * Например:
+ *
+ * Наша семья -> Мотосервис
+ *
+ * Старые семейные операции не должны отображаться
+ * даже во время загрузки данных мотосервиса.
+ */
+
+export function clearTransactions() {
+
+    // Делает все предыдущие загрузки устаревшими.
+    transactionsLoadVersion++;
+
+    // Очищаем локальный массив.
+    // Данные в PostgreSQL при этом НЕ удаляются.
+    allTransactions = [];
+
+    // Обновляем историю и верхние карточки.
     renderTransactions();
 }
+
+
+
+// Счётчик запросов помогает игнорировать
+// ответы от более ранних загрузок.
+let transactionsLoadVersion = 0;
+
+export async function loadTransactions() {
+
+    // Запоминаем текущую версию запроса
+    // и пространство, для которого загружаем данные.
+    const version = ++transactionsLoadVersion;
+    const workspaceId = getCurrentWorkspace();
+
+    // Выполняем запрос к backend.
+    const transactions = await getTransactions();
+
+    // Если во время ожидания сменилось пространство
+    // или начался более новый запрос,
+    // не записываем устаревший результат.
+    if (
+        version !== transactionsLoadVersion ||
+        workspaceId !== getCurrentWorkspace()
+    ) {
+        return;
+    }
+
+    allTransactions = transactions;
+    renderTransactions();
+}
+
 
 // Ищем запись в уже загруженном массиве по ID.
 // find() возвращает объект или undefined, если записи нет.

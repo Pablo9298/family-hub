@@ -1,42 +1,167 @@
-/* ==========================================================
-   FAMILY HUB — api.js
-   Единственная задача этого файла: общаться с backend Express.
 
-   Цепочка данных:
-   браузер -> fetch() -> http://localhost:3001/transactions
-           -> Express -> PostgreSQL -> ответ JSON -> браузер.
+/*
+ * ==========================================================
+ * FAMILY HUB — api.js
+ * ==========================================================
+ *
+ * Этот модуль отвечает за общение frontend с Express.
+ *
+ * Frontend -> fetch() -> Express -> PostgreSQL
+ *
+ * Теперь все финансовые операции выполняются
+ * внутри определённого workspace.
+ *
+ * Например:
+ * /workspaces/1/transactions
+ * /workspaces/1/categories
+ *
+ * Сервер проверяет:
+ * 1. Авторизован ли пользователь.
+ * 2. Состоит ли он в указанном пространстве.
+ *
+ * Важно:
+ * credentials: 'include' позволяет браузеру
+ * отправлять сессионную cookie вместе с запросом.
+ */
 
-   Здесь нет HTML, кнопок и логики фильтров.
-   Поэтому позже можно изменить адрес API в одном месте.
-   ========================================================== */
-
-// Сейчас backend запускается локально на порту 3001.
-// Перед публичным релизом адрес нужно будет сделать настраиваемым.
-// Один базовый адрес для всех маршрутов backend.
+// Адрес локального Express backend.
 const API_BASE = 'http://localhost:3001';
-const API_URL = `${API_BASE}/transactions`;
 
-// Вспомогательная функция для обработки HTTP-ошибок.
-// fetch() НЕ бросает ошибку автоматически при ответах 400/404/500:
-// он возвращает Response, у которого response.ok === false.
-async function readResponse(response) {
-    if (!response.ok) {
-        // Пытаемся прочитать сообщение, которое отправил Express.
-        // Если ответ не JSON, не ломаемся на его разборе.
-        const errorBody = await response.json().catch(() => null);
-        throw new Error(errorBody?.message || `HTTP ${response.status}`);
+
+/*
+ * ==========================================================
+ * ТЕКУЩЕЕ ФИНАНСОВОЕ ПРОСТРАНСТВО
+ * ==========================================================
+ *
+ * Пока workspace не выбран.
+ *
+ * После входа frontend загрузит список доступных
+ * пространств и выберет нужное.
+ */
+
+let currentWorkspaceId = null;
+
+
+/*
+ * Устанавливаем текущее пространство.
+ *
+ * Например:
+ * setCurrentWorkspace(1);
+ *
+ * В дальнейшем вызовем эту функцию из main.js,
+ * когда получим список пространств пользователя.
+ */
+export function setCurrentWorkspace(workspaceId) {
+
+    // PostgreSQL BIGINT может приходить строкой.
+    // Проверяем положительный целочисленный ID.
+    const id = String(workspaceId);
+
+    if (!/^[1-9]\d*$/.test(id)) {
+        throw new Error('Invalid workspace ID');
     }
 
-    // .json() превращает JSON-строку ответа в JS-массив или объект.
+    currentWorkspaceId = id;
+}
+
+
+/*
+ * Возвращаем выбранное пространство.
+ *
+ * Если его ещё не выбрали, выбрасываем ошибку,
+ * чтобы случайно не отправить запрос по
+ * неправильному адресу.
+ */
+export function getCurrentWorkspace() {
+
+    if (currentWorkspaceId === null) {
+        throw new Error('Финансовое пространство ещё не выбрано');
+    }
+
+    return currentWorkspaceId;
+}
+
+
+/*
+ * Формируем адрес API для текущего пространства.
+ *
+ * Например:
+ * getWorkspaceUrl('transactions')
+ *
+ * Вернёт:
+ * http://localhost:3001/workspaces/1/transactions
+ */
+function getWorkspaceUrl(resource) {
+
+    const workspaceId = getCurrentWorkspace();
+
+    return `${API_BASE}/workspaces/${workspaceId}/${resource}`;
+}
+
+
+
+// ==========================================================
+// ОБЩАЯ ФУНКЦИЯ ДЛЯ HTTP-ЗАПРОСОВ
+// ==========================================================
+
+async function apiFetch(url, options = {}) {
+
+    // Добавляем сессионную cookie к запросу.
+    //
+    // options позволяет передавать method,
+    // headers, body и другие настройки fetch().
+    const response = await fetch(url, {
+        ...options,
+        credentials: 'include'
+    });
+
+    return readResponse(response);
+}
+
+
+// ==========================================================
+// ОБРАБОТКА HTTP-ОТВЕТОВ
+// ==========================================================
+
+async function readResponse(response) {
+
+    // fetch() сам не считает HTTP 400/401/404/500
+    // ошибкой JavaScript. Поэтому проверяем response.ok.
+    if (!response.ok) {
+
+        // Express может возвращать error или message.
+        // Поддерживаем оба варианта.
+        const errorBody = await response.json()
+            .catch(() => null);
+
+        if (response.status === 401) {
+            throw new Error(
+                'Сессия отсутствует. Войди через Google.'
+            );
+        }
+
+        throw new Error(
+            errorBody?.error ||
+            errorBody?.message ||
+            `HTTP ${response.status}`
+        );
+    }
+
+    // Превращаем JSON-ответ в объект JavaScript.
     return response.json();
 }
 
-// GET /transactions: загружаем массив всех транзакций.
-export async function getTransactions() {
-    const response = await fetch(API_URL);
-    const transactions = await readResponse(response);
 
-    // Backend по договорённости должен вернуть массив.
+// ==========================================================
+// GET — ПОЛУЧЕНИЕ ТРАНЗАКЦИЙ
+// ==========================================================
+
+export async function getTransactions() {
+
+    const transactions = await apiFetch(
+        getWorkspaceUrl('transactions')
+    );
+
     if (!Array.isArray(transactions)) {
         throw new Error('Сервер вернул не массив транзакций');
     }
@@ -44,50 +169,98 @@ export async function getTransactions() {
     return transactions;
 }
 
-// POST /transactions: отправляем новую транзакцию в формате JSON.
-// data = {date, desc, amount, category, type}.
+
+// ==========================================================
+// POST — СОЗДАНИЕ ТРАНЗАКЦИИ
+// ==========================================================
+
 export async function createTransaction(data) {
-    const response = await fetch(API_URL, {
+
+    return apiFetch(getWorkspaceUrl('transactions'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data) // JS-объект -> JSON-строка для HTTP.
-    });
 
-    return readResponse(response); // Backend возвращает созданную запись (201).
-}
+        headers: {
+            'Content-Type': 'application/json'
+        },
 
-// PUT /transactions/:id: меняем существующую транзакцию.
-// id находится в URL, новые поля — в теле JSON-запроса.
-export async function updateTransaction(id, data) {
-    const response = await fetch(`${API_URL}/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        // Превращаем JS-объект в JSON-строку.
         body: JSON.stringify(data)
     });
-
-    return readResponse(response);
 }
 
-// DELETE /transactions/:id: удаляем транзакцию по ID.
+
+// ==========================================================
+// PUT — РЕДАКТИРОВАНИЕ ТРАНЗАКЦИИ
+// ==========================================================
+
+export async function updateTransaction(id, data) {
+
+    return apiFetch(`${getWorkspaceUrl('transactions')}/${id}`, {
+        method: 'PUT',
+
+        headers: {
+            'Content-Type': 'application/json'
+        },
+
+        body: JSON.stringify(data)
+    });
+}
+
+
+// ==========================================================
+// DELETE — УДАЛЕНИЕ ТРАНЗАКЦИИ
+// ==========================================================
+
 export async function deleteTransaction(id) {
-    const response = await fetch(`${API_URL}/${id}`, {
+
+    return apiFetch(`${getWorkspaceUrl('transactions')}/${id}`, {
         method: 'DELETE'
     });
-
-    return readResponse(response);
 }
 
-// GET /categories: получаем все категории из PostgreSQL.
-// Ответ: [{ id: 1, name: 'продукты', type: 'expense' }, ...].
-// Категории загружаются один раз при запуске и после изменения транзакций.
-export async function getCategories() {
-    const response = await fetch(`${API_BASE}/categories`);
-    const categories = await readResponse(response);
 
-    // Не позволяем некорректному ответу сервера попасть в UI.
+// ==========================================================
+// GET — ПОЛУЧЕНИЕ КАТЕГОРИЙ
+// ==========================================================
+
+export async function getCategories() {
+
+    const categories = await apiFetch(
+        getWorkspaceUrl('categories')
+    );
+
     if (!Array.isArray(categories)) {
         throw new Error('Сервер вернул не массив категорий');
     }
 
     return categories;
+}
+
+
+/*
+ * ==========================================================
+ * GET /workspaces
+ * ==========================================================
+ *
+ * Загружаем финансовые пространства,
+ * к которым текущий пользователь имеет доступ.
+ *
+ * Не передаём userId вручную!
+ * Backend определяет пользователя по Google-сессии.
+ */
+
+export async function getWorkspaces() {
+
+    const workspaces = await apiFetch(
+        `${API_BASE}/workspaces`
+    );
+
+    // Проверяем формат ответа сервера.
+    if (!Array.isArray(workspaces)) {
+        throw new Error(
+            'Сервер вернул не массив пространств'
+        );
+    }
+
+    return workspaces;
 }
