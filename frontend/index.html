@@ -1,354 +1,185 @@
+
 <!DOCTYPE html>
-<!--
-    FAMILY HUB — ГЛАВНАЯ СТРАНИЦА
-
-    Этот файл описывает структуру интерфейса (HTML).
-    Внешний вид задаёт frontend/style.css.
-    Поведение кнопок, форм и фильтров задают модули frontend/js/.
-
-    Важно: атрибуты id и name используются JavaScript.
-    Не меняй их без соответствующего изменения JS-модулей.
--->
-<html lang="ru"> <!-- Язык страницы: русский -->
-
-<!-- =========================================================
-     1. HEAD — настройки страницы и подключение стилей
-     ========================================================= -->
+<html lang="ru">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#101526">
-    <title>Family Hub — семейные финансы</title>
-    <!-- Определяем светлую/тёмную тему до появления интерфейса -->
-    <script>
-        // Ставим тему до отрисовки, чтобы избежать мигания
-        const savedTheme = localStorage.getItem('familyhub-theme');
-        document.documentElement.dataset.theme = savedTheme ||
-            (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-    </script>
-    <!-- Подключаем стили из файла frontend/style.css -->
-    <link rel="stylesheet" href="style.css">
+
+    <meta name="theme-color" content="#0e1322">
+
+    <title>Family Hub — семейные финансы вместе</title>
+
+    <!--
+        Для публичной страницы используем отдельный CSS.
+        Стили финансового кабинета не затрагиваем.
+    -->
+    <link rel="stylesheet" href="landing.css">
 </head>
 
 <body>
-    <!-- app-shell: общий контейнер сайта, задающий ширину и расположение элементов -->
-    <div class="app-shell">
-        <!-- =========================================================
-             2. HEADER — логотип, название и переключатель темы
-             ========================================================= -->
-        <header class="app-header">
-            <a class="brand" href="#top" aria-label="Family Hub — на главную">
-                <span class="brand-icon">◈</span>
-                <span>Family<span class="brand-accent">Hub</span><small>Семейные финансы</small></span>
-            </a>
-            <div class="header-actions">
-                <span class="header-note">Ваш финансовый обзор</span>
-                <!-- JS-модули использует id="theme-toggle" для смены темы -->
-                <button id="theme-toggle" class="icon-button" type="button" aria-label="Переключить тему"
-                    title="Переключить тему">☾</button>
-            </div>
-        </header>
 
-        <!-- =========================================================
-             3. MAIN — основное содержимое страницы
-             ========================================================= -->
-        <main id="top">
-            <!-- Заголовок страницы и обозначение текущей версии MVP -->
-            <section class="page-heading">
-                <div>
-                    <p class="eyebrow">ЛИЧНОЕ ПРОСТРАНСТВО</p>
-                    <h1>Семейный бюджет</h1>
-                    <p class="muted">Все операции и планы в одном месте.</p>
+    <!-- ==========================================
+         ШАПКА САЙТА
+         ========================================== -->
+
+    <header class="landing-header">
+
+        <a href="/" class="landing-brand">
+            <span class="brand-symbol">◈</span>
+            <span>Family<span class="brand-accent">Hub</span></span>
+        </a>
+
+        <!--
+            Позже подключим проверку текущей сессии.
+            Пока кнопка ведёт на работающий Google OAuth.
+        -->
+        <a
+            class="login-link"
+            href="http://localhost:3001/auth/google"
+        >
+            Войти
+        </a>
+
+    </header>
+
+
+    <!-- ==========================================
+         ГЛАВНЫЙ ЭКРАН
+         ========================================== -->
+
+    <main>
+
+        <section class="hero">
+
+            <div class="hero-content">
+
+                <p class="eyebrow">
+                    СЕМЕЙНЫЕ ФИНАНСЫ В ОДНОМ МЕСТЕ
+                </p>
+
+                <h1>
+                    Ваши финансы.
+                    <span>Ваши правила.</span>
+                </h1>
+
+                <p class="hero-description">
+                    Family Hub помогает вести доходы и расходы,
+                    следить за бюджетом и управлять отдельными
+                    финансовыми пространствами в одном месте.
+                </p>
+
+                <div class="hero-actions">
+
+                    <a
+                        class="primary-button"
+                        href="http://localhost:3001/auth/google"
+                    >
+                        Начать с Google
+                    </a>
+
+                    <a class="secondary-button" href="#features">
+                        Узнать больше
+                    </a>
+
                 </div>
-                <span class="live-pill"><span class="live-dot"></span> Family Hub · MVP</span>
-            </section>
 
-            <!-- =====================================================
-                 4. FINANCIAL SUMMARY — финансовые показатели
+                <p class="hero-note">
+                    Сейчас Family Hub находится в разработке.
+                </p>
 
-                 JavaScript подставляет значения в три элемента по id:
-                 summary-balance  = доходы минус расходы;
-                 summary-income   = сумма доходов;
-                 summary-expenses = сумма расходов.
-                 Показатели относятся к выбранному периоду.
-                 ===================================================== -->
-            <section class="summary-grid" aria-label="Обзор бюджета">
-                <article class="summary-card main-summary">
-                    <div class="summary-caption">Разница доходов и расходов</div>
-                    <div id="summary-balance" class="summary-value">0,00 €</div>
-                    <div class="summary-foot">За выбранный период</div>
-                </article>
+            </div>
 
-                <article class="summary-card">
-                    <div class="summary-caption">Доходы</div>
-                    <div id="summary-income" class="summary-value">0,00 €</div>
-                    <div class="summary-foot">За выбранный период</div>
-                </article>
+            <!-- Небольшая иллюстрация возможностей -->
+            <div class="hero-preview" aria-label="Пример финансового обзора">
 
-                <article class="summary-card">
-                    <div class="summary-caption">Расходы</div>
-                    <div id="summary-expenses" class="summary-value">0,00 €</div>
-                    <div class="summary-foot">За выбранный период</div>
-                </article>
-            </section>
+                <div class="preview-heading">
+                    <span>Финансовый обзор</span>
+                    <span class="preview-label">DEMO</span>
+                </div>
 
-            <!-- =====================================================
-                 5. CONTENT GRID — форма добавления и история операций
-                 ===================================================== -->
-            <div class="content-grid">
-                <!-- =================================================
-                     5.1. ADD FORM — добавление дохода или расхода
+                <div class="preview-balance">
+                    <span>Разница доходов и расходов</span>
+                    <strong>1 245,50 €</strong>
+                    <small>Пример отображения бюджета</small>
+                </div>
 
-                     JS-модули слушает submit формы #add-form,
-                     читает выбранный тип, дату, описание, сумму и категорию,
-                     затем отправляет POST /transactions на backend.
-                     ================================================= -->
-                <section id="form-container" class="panel">
-                    <div class="panel-heading">
-                        <div>
-                            <p class="eyebrow">НОВАЯ ЗАПИСЬ</p>
-                            <h2>Добавить операцию</h2>
-                        </div>
-                        <span class="heading-icon">＋</span>
+                <div class="preview-stats">
+                    <div>
+                        <span>Доходы</span>
+                        <strong>2 850,00 €</strong>
                     </div>
-                    <p class="muted panel-intro">
-                        Выбери тип операции и введи положительную сумму.
+
+                    <div>
+                        <span>Расходы</span>
+                        <strong>1 604,50 €</strong>
+                    </div>
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- ==========================================
+             ВОЗМОЖНОСТИ
+             ========================================== -->
+
+        <section id="features" class="features">
+
+            <div class="section-heading">
+                <p class="eyebrow">ВОЗМОЖНОСТИ</p>
+                <h2>Всё необходимое для начала</h2>
+                <p>
+                    Простые инструменты для ежедневного
+                    управления финансами.
+                </p>
+            </div>
+
+            <div class="feature-grid">
+
+                <article class="feature-card">
+                    <span class="feature-icon">↗</span>
+                    <h3>Доходы и расходы</h3>
+                    <p>
+                        Записывайте финансовые операции,
+                        выбирайте категории и просматривайте историю.
                     </p>
-                    <form id="add-form">
-                        <div class="field">
-                            <span class="field-label">Тип операции</span>
+                </article>
 
-                            <!-- У radio одинаковый name="type":
-                                 одновременно можно выбрать только один тип.
-                                 checked означает «Расход» по умолчанию. -->
-                            <div class="radio-group" id="type-group">
-                                <label class="radio-card">
-                                    <input type="radio" name="type" value="expense" checked>
-                                    <span>Расход</span>
-                                </label>
+                <article class="feature-card">
+                    <span class="feature-icon">◈</span>
+                    <h3>Финансовые пространства</h3>
+                    <p>
+                        Разделяйте семейные, личные и другие бюджеты.
+                        Данные пространств не смешиваются.
+                    </p>
+                </article>
 
-                                <label class="radio-card">
-                                    <input type="radio" name="type" value="income">
-                                    <span>Доход</span>
-                                </label>
-                            </div>
-                        </div>
+                <article class="feature-card">
+                    <span class="feature-icon">▦</span>
+                    <h3>Финансовый обзор</h3>
+                    <p>
+                        Следите за доходами, расходами и разницей
+                        за выбранный период.
+                    </p>
+                </article>
 
-                        <!-- Поля формы. label for связан с input id.
-                             required = обязательное поле; min и step
-                             помогают проверить положительную сумму с копейками.
-                             Основная проверка данных также выполняется на backend. -->
-                        <div class="field"><label for="date">Дата</label><input type="date" id="date" required></div>
-                        <div class="field"><label for="desc">Описание</label><input type="text" id="desc"
-                                placeholder="Например, продукты" required></div>
-                        <div class="field"><label for="amount">Сумма (€)</label><input type="number" id="amount"
-                                min="0.01" step="0.01" placeholder="Например, 42.50" required></div>
-                        <!-- list связывает текстовый input со списком подсказок datalist.
-                             Пользователь НЕ обязан выбирать готовую категорию:
-                             можно написать новую, и backend создаст её при сохранении.
-                             Список <option> добавит js/categories.js. -->
-                        <div class="field">
-                            <label for="category">Категория</label>
-                            <input type="text" id="category" list="category-suggestions"
-                                placeholder="Например, продукты" autocomplete="off" required>
-                            <datalist id="category-suggestions"></datalist>
-                        </div>
-                        <button type="submit" class="btn btn-primary btn-full">＋ Добавить операцию</button>
-                    </form>
-                </section>
-
-                <!-- =================================================
-                     5.2. HISTORY — фильтры и список транзакций
-
-                     JS-модули получает данные через GET /transactions,
-                     фильтрует их и вставляет карточки в #transaction-list.
-                     ================================================= -->
-                <section id="transactions-container" class="panel">
-
-                    <!-- ==========================================
-                    ФИЛЬТРЫ ТРАНЗАКЦИЙ
-                    ========================================== -->
-
-                    <div class="transaction-filters">
-
-                        <!-- Выбор периода -->
-                        <!-- fieldset объединяет варианты выбора одного периода.
-                             name="filter-period" связывает радиокнопки в группу. -->
-                        <fieldset class="filter-period">
-                            <legend>Период</legend>
-
-                            <!-- По умолчанию текущий месяц -->
-                            <label>
-                                <input type="radio" name="filter-period" value="current" checked>
-                                Текущий месяц
-                            </label>
-
-                            <label>
-                                <input type="radio" name="filter-period" value="previous">
-                                Прошлый месяц
-                            </label>
-
-                            <label>
-                                <input type="radio" name="filter-period" value="custom">
-                                Свой период
-                            </label>
-
-                            <label>
-                                <input type="radio" name="filter-period" value="all">
-                                За всё время
-                            </label>
-                        </fieldset>
-
-                        <!-- Календарь для произвольного периода -->
-                        <!-- Изначально скрыт -->
-                        <!-- JS показывает этот блок при выборе «Свой период».
-                             hidden означает, что изначально он скрыт. -->
-                        <div id="custom-date-range" class="custom-date-range" hidden>
-
-                            <div class="field">
-                                <label for="filter-date-from">С даты</label>
-                                <input type="date" id="filter-date-from">
-                            </div>
-
-                            <div class="field">
-                                <label for="filter-date-to">По дату</label>
-                                <input type="date" id="filter-date-to">
-                            </div>
-
-                        </div>
-
-                        <!-- Отбор по типу транзакции -->
-                        <!-- Эти кнопки меняют только список в истории,
-                             а верхние карточки считают весь выбранный период. -->
-                        <fieldset class="filter-types">
-                            <legend>Показать операции</legend>
-
-                            <label>
-                                <input type="radio" name="filter-type" value="all" checked>
-                                Все
-                            </label>
-
-                            <label>
-                                <input type="radio" name="filter-type" value="expense">
-                                Расходы
-                            </label>
-
-                            <label>
-                                <input type="radio" name="filter-type" value="income">
-                                Доходы
-                            </label>
-                        </fieldset>
-
-                    </div>
-
-                    <div class="panel-heading">
-                        <div>
-                            <p class="eyebrow">ИСТОРИЯ</p>
-                            <h2>Транзакции</h2>
-                        </div>
-                        <span class="heading-icon">↗</span>
-                    </div>
-                    <!-- Сюда JavaScript вставляет HTML карточек транзакций.
-                         aria-live сообщает вспомогательным технологиям
-                         об изменениях содержимого. -->
-                    <div id="transaction-list" aria-live="polite"></div>
-
-                    <!-- Сумма только тех операций, которые видны после фильтрации -->
-                    <div id="total" class="total-line">Итого: 0,00 €</div>
-                </section>
             </div>
-        </main>
-        <!-- =========================================================
-             6. FOOTER — подпись внизу страницы
-             ========================================================= -->
-        <footer class="app-footer">Family Hub <span>·</span> Сделано для удобного семейного бюджета</footer>
-    </div>
 
-    <!-- =============================================================
-         7. EDIT DIALOG — модальное окно редактирования
+        </section>
 
-         При нажатии «Изменить» JS-модули открывает #edit-dialog,
-         заполняет форму текущими данными и отправляет PUT /transactions/:id.
-         ============================================================= -->
-    <dialog id="edit-dialog" class="modal">
-        <div class="modal-heading">
-            <div>
-                <p class="eyebrow">ИЗМЕНЕНИЕ ЗАПИСИ</p>
-                <h2>Редактировать операцию</h2>
-            </div>
-            <button type="button" class="icon-button" id="close-edit" aria-label="Закрыть">×</button>
-        </div>
-        <form id="edit-form">
-            <div class="field">
-                <span class="field-label">Тип операции</span>
+    </main>
 
-                <!-- Отдельная группа name="edit-type", чтобы радиокнопки
-                     редактирования не мешали радиокнопкам добавления. -->
-                <div class="radio-group" id="edit-type-group">
-                    <label class="radio-card">
-                        <input type="radio" name="edit-type" value="expense" checked>
-                        <span>Расход</span>
-                    </label>
 
-                    <label class="radio-card">
-                        <input type="radio" name="edit-type" value="income">
-                        <span>Доход</span>
-                    </label>
-                </div>
-            </div>
-            <div class="field"><label for="edit-date">Дата</label><input type="date" id="edit-date" required></div>
-            <div class="field"><label for="edit-desc">Описание</label><input type="text" id="edit-desc" required></div>
-            <div class="field"><label for="edit-amount">Сумма (€)</label><input type="number" id="edit-amount"
-                    min="0.01" step="0.01" required></div>
-            <!-- У окна редактирования собственный datalist.
-                 Он фильтруется по выбранному edit-type, независимо от формы добавления. -->
-            <div class="field">
-                <label for="edit-category">Категория</label>
-                <input type="text" id="edit-category" list="edit-category-suggestions"
-                    autocomplete="off" required>
-                <datalist id="edit-category-suggestions"></datalist>
-            </div>
-            <div class="dialog-buttons">
-                <button type="button" class="btn btn-secondary" id="cancel-edit">Отмена</button>
-                <button type="submit" class="btn btn-primary">Сохранить изменения</button>
-            </div>
-        </form>
-    </dialog>
+    <!-- ==========================================
+         ПОДВАЛ
+         ========================================== -->
 
-    <!-- =============================================================
-         8. DELETE DIALOG — подтверждение удаления
+    <footer class="landing-footer">
+        <span>© 2026 Family Hub</span>
+        <span>Семейные финансы без лишней сложности</span>
+    </footer>
 
-         JS-модули показывает описание выбранной транзакции и только
-         после подтверждения отправляет DELETE /transactions/:id.
-         ============================================================= -->
-    <dialog id="delete-dialog" class="modal small-modal">
-        <div class="modal-heading">
-            <div>
-                <p class="eyebrow">ПОДТВЕРЖДЕНИЕ</p>
-                <h2>Удалить операцию?</h2>
-            </div>
-        </div>
-        <p id="delete-description" class="muted">Эту операцию нельзя будет восстановить.</p>
-        <div class="dialog-buttons">
-            <button type="button" class="btn btn-secondary" id="cancel-delete">Отмена</button>
-            <button type="button" class="btn btn-danger" id="confirm-delete">Да, удалить</button>
-        </div>
-    </dialog>
-
-    <!-- =============================================================
-         9. TOASTS — небольшие уведомления об успехе или ошибке
-
-         showToast() в JS-модули создаёт элементы внутри этого контейнера.
-         ============================================================= -->
-    <div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="true"></div>
-    <!-- =============================================================
-         10. JAVASCRIPT — подключаем логику в конце body,
-         когда элементы интерфейса уже созданы браузером.
-         ============================================================= -->
-    <!-- Точка входа в приложение.
-     type="module" включает import/export между JS-файлами. -->
-    <script type="module" src="js/main.js"></script>
 </body>
-
 </html>

@@ -71,6 +71,9 @@ router.get('/google', async (req, res) => {
                 // для создания аккаунта Family Hub.
                 scope: 'openid email profile',
 
+                // Показывать выбор Google-аккаунта при входе.
+                prompt: 'select_account',
+
                 code_challenge: codeChallenge,
                 code_challenge_method: 'S256',
 
@@ -198,24 +201,31 @@ router.get('/google/callback', async (req, res) => {
             // Не сохраняем Google access token или ID token.
             req.session.userId = user.id.toString();
 
-            // Гарантируем, что сессия записана
-            // в PostgreSQL до ответа браузеру.
+
             req.session.save((saveError) => {
                 if (saveError) {
                     console.error('Session save failed:', saveError);
                     return res.status(500).send('Session error');
                 }
 
-                // Пока показываем простой текст,
-                // чтобы проверить работу входа.
-                // Позже перенаправим на frontend.
-                res.type('text/plain').send(
-                    'Family Hub login successful!\n' +
-                    `User ID: ${user.id}\n` +
-                    `Name: ${user.display_name}\n` +
-                    `Email: ${user.email}`
+                // =====================================================
+                // ПЕРЕНАПРАВЛЕНИЕ В ЛИЧНЫЙ КАБИНЕТ
+                // =====================================================
+                //
+                // Google подтвердил пользователя.
+                // Мы создали сессию и сохранили её в PostgreSQL.
+                //
+                // Теперь вместо текстового сообщения отправляем
+                // браузер на страницу финансового кабинета.
+                //
+                // HTTP 302 сообщает браузеру:
+                // "Открой указанный адрес".
+
+                return res.redirect(
+                    'http://localhost:5500/frontend/dashboard.html'
                 );
             });
+
         });
 
 
@@ -228,6 +238,121 @@ router.get('/google/callback', async (req, res) => {
         );
     }
 });
+
+
+/*
+ * =====================================================
+ * GET /auth/me — ПРОВЕРКА АВТОРИЗАЦИИ
+ * =====================================================
+ *
+ * Frontend вызывает этот маршрут при открытии
+ * личного кабинета.
+ *
+ * Если пользователь авторизован:
+ * - возвращаем информацию о его аккаунте.
+ *
+ * Если сессии нет:
+ * - возвращаем HTTP 401 Unauthorized.
+ *
+ * Пользователя определяем по серверной сессии,
+ * а не по ID, переданному браузером.
+ */
+
+router.get('/me', async (req, res) => {
+
+    // Проверяем, есть ли авторизованный пользователь.
+    const userId = req.session?.userId;
+
+    if (!userId) {
+        return res.status(401).json({
+            error: 'Authentication required'
+        });
+    }
+
+    try {
+
+        // Загружаем актуальную информацию из PostgreSQL.
+        // Не возвращаем Google-токены и секреты.
+        const pool = require('./db');
+
+        const result = await pool.query(
+            `
+            SELECT
+                id,
+                email,
+                display_name
+            FROM users
+            WHERE id = $1
+            `,
+            [userId]
+        );
+
+        // Сессия может остаться, даже если аккаунт
+        // был удалён из базы.
+        if (result.rows.length === 0) {
+            return res.status(401).json({
+                error: 'User not found'
+            });
+        }
+
+        const user = result.rows[0];
+
+        return res.json({
+            id: Number(user.id),
+            email: user.email,
+            display_name: user.display_name
+        });
+
+    } catch (error) {
+
+        console.error('GET /auth/me error:', error);
+
+        return res.status(500).json({
+            error: 'Failed to check authentication'
+        });
+    }
+});
+
+
+/*
+ * =====================================================
+ * POST /auth/logout — ВЫХОД ИЗ АККАУНТА
+ * =====================================================
+ *
+ * При выходе:
+ * 1. Уничтожаем серверную сессию.
+ * 2. Удаляем сессионную cookie из браузера.
+ *
+ * Сам аккаунт Google и данные в PostgreSQL
+ * при этом НЕ удаляются.
+ */
+
+router.post('/logout', (req, res) => {
+
+    // Уничтожаем сессию на сервере.
+    req.session.destroy((error) => {
+
+        if (error) {
+            console.error('Logout error:', error);
+
+            return res.status(500).json({
+                error: 'Failed to log out'
+            });
+        }
+
+        // Удаляем cookie с идентификатором сессии.
+        // express-session по умолчанию использует connect.sid.
+        res.clearCookie('connect.sid', {
+            path: '/'
+        });
+
+        return res.json({
+            message: 'Logged out successfully'
+        });
+    });
+});
+
+
 
 
 module.exports = router;

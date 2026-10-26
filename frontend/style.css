@@ -966,3 +966,181 @@ h2 {
         grid-template-columns: 1fr;
     }
 }
+
+
+
+/* =====================================================
+   WORKSPACE SELECTOR — выбор финансового пространства
+   ===================================================== */
+
+.workspace-selector {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+
+    /* Отступы между заголовком и карточками */
+    margin: 24px 0;
+
+    /* Ограничиваем ширину выпадающего списка */
+    max-width: 340px;
+}
+
+.workspace-selector label {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    color: var(--text);
+}
+
+.workspace-selector select {
+    width: 100%;
+    padding: 12px 40px 12px 16px;
+
+    /* Подстраиваемся под тёмную тему */
+    background-color: var(--surface);
+    color: var(--text);
+
+    border: 1px solid var(--border, #30364c);
+    border-radius: 12px;
+
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+
+    cursor: pointer;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.workspace-selector select:hover:not(:disabled) {
+    border-color: #8b6cf0;
+}
+
+.workspace-selector select:focus-visible {
+    outline: 2px solid #8b6cf0;
+    outline-offset: 2px;
+}
+
+.workspace-selector select:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+/* Цвет вариантов внутри выпадающего списка */
+.workspace-selector select option {
+    background: var(--surface);
+    color: var(--text);
+}
+
+
+/* =====================================================
+   КНОПКА СОЗДАНИЯ ФИНАНСОВОГО ПРОСТРАНСТВА
+   ===================================================== */
+
+/* Располагаем select и кнопку рядом */
+.workspace-controls {
+    display: flex;
+    align-items: stretch;
+    gap: 10px;
+}
+
+/* Список занимает всё доступное место */
+.workspace-controls select {
+    flex: 1;
+    min-width: 0;
+}
+
+/* Кнопка сохраняет свою ширину */
+.workspace-controls button {
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+/* На небольшом экране ставим элементы друг под другом */
+@media (max-width: 480px) {
+    .workspace-controls {
+        flex-direction: column;
+    }
+}
+
+/* Ширина общего блока с учётом новой кнопки */
+.workspace-selector {
+    max-width: 500px;
+}
+
+
+/* =====================================================
+   GOOGLE ACCOUNT — текущий пользователь
+   ===================================================== */
+
+.account-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    min-width: 0;
+}
+
+.account-avatar {
+    display: grid;
+    place-items: center;
+
+    width: 38px;
+    height: 38px;
+    flex-shrink: 0;
+
+    border-radius: 50%;
+
+    background: var(--primary-soft);
+    color: var(--primary);
+
+    font-size: 18px;
+}
+
+.account-details {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    line-height: 1.4;
+}
+
+.account-name {
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 700;
+
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.account-email {
+    color: var(--muted);
+    font-size: 11px;
+
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Чтобы длинный email не растягивал шапку */
+.account-details {
+    max-width: 220px;
+}
+
+/* Адаптация под телефон */
+@media (max-width: 620px) {
+
+    .app-header {
+        flex-wrap: wrap;
+        padding: 12px 0;
+    }
+
+    .header-actions {
+        flex-wrap: wrap;
+        justify-content: flex-end;
+    }
+
+    .account-details {
+        max-width: 180px;
+    }
+}

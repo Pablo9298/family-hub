@@ -17,12 +17,26 @@ import {
     updateTransaction,
     deleteTransaction,
     getWorkspaces,
-    setCurrentWorkspace
+    createWorkspace,
+    setCurrentWorkspace,
+    getCurrentUser,
+    logout
 } from './api.js';
 import { $, money, showToast, initTheme } from './ui.js';
 import { formatDate, initFilters } from './filters.js';
-import { loadTransactions, renderTransactions, findTransaction } from './transactions.js';
-import { initCategorySuggestions, renderCategorySuggestions, refreshCategories } from './categories.js';
+import {
+    loadTransactions,
+    renderTransactions,
+    findTransaction,
+    clearTransactions
+} from './transactions.js';
+
+import {
+    initCategorySuggestions,
+    renderCategorySuggestions,
+    refreshCategories,
+    clearCategories
+} from './categories.js';
 
 // ID транзакций, над которыми сейчас открыто модальное окно.
 // null = редактирование/удаление сейчас не выбрано.
@@ -204,6 +218,254 @@ function initTransactionEvents() {
 
 /*
  * =====================================================
+ * ОКНО СОЗДАНИЯ ФИНАНСОВОГО ПРОСТРАНСТВА
+ * =====================================================
+ *
+ * Пока реализуем только:
+ *
+ * 1. Открытие модального окна.
+ * 2. Закрытие по крестику.
+ * 3. Закрытие по кнопке "Отмена".
+ *
+ * Отправку POST /workspaces подключим следующим шагом.
+ */
+
+function initCreateWorkspaceDialog() {
+
+    // Находим кнопку "+ Создать".
+    const createButton = $('create-workspace-button');
+
+    // Находим модальное окно.
+    const dialog = $('create-workspace-dialog');
+
+    // Находим поле для названия пространства.
+    const nameInput = $('workspace-name');
+
+    // =================================================
+    // 1. ОТКРЫТИЕ ОКНА
+    // =================================================
+
+    createButton.addEventListener('click', () => {
+
+        // Очищаем название от предыдущего ввода.
+        nameInput.value = '';
+
+        // Открываем нативное модальное окно браузера.
+        dialog.showModal();
+
+        // Сразу устанавливаем курсор в поле названия.
+        nameInput.focus();
+    });
+
+
+    // =================================================
+    // 2. ЗАКРЫТИЕ ПО КРЕСТИКУ
+    // =================================================
+
+    $('close-create-workspace').addEventListener('click', () => {
+
+        dialog.close();
+    });
+
+
+    // =================================================
+    // 3. ЗАКРЫТИЕ ПО КНОПКЕ "ОТМЕНА"
+    // =================================================
+
+    $('cancel-create-workspace').addEventListener('click', () => {
+
+        dialog.close();
+    });
+
+
+    /*
+     * =====================================================
+     * СОЗДАНИЕ ПРОСТРАНСТВА ПО НАЖАТИЮ "СОЗДАТЬ"
+     * =====================================================
+     */
+
+    $('create-workspace-form').addEventListener('submit', async (event) => {
+
+        // Отключаем стандартную отправку HTML-формы.
+        event.preventDefault();
+
+        // Получаем название, введённое пользователем.
+        const name = nameInput.value.trim();
+
+        // Проверяем название до отправки на сервер.
+        // Backend тоже выполнит свою проверку.
+        if (name.length === 0 || name.length > 100) {
+            showToast(
+                'Название должно содержать от 1 до 100 символов',
+                'error'
+            );
+            return;
+        }
+
+        // Находим кнопку отправки формы.
+        const submitButton =
+            $('create-workspace-form').querySelector('button[type="submit"]');
+
+        // Не разрешаем отправить форму дважды.
+        submitButton.disabled = true;
+        createButton.disabled = true;
+
+        try {
+
+            // 1. Создаём пространство в PostgreSQL.
+            const newWorkspace = await createWorkspace(name);
+
+            console.log('Создано пространство:', newWorkspace);
+
+            // 2. Добавляем новое пространство в select.
+            const workspaceSelect = $('workspace-select');
+
+            const option = document.createElement('option');
+
+            option.value = String(newWorkspace.id);
+            option.textContent = newWorkspace.name;
+
+            workspaceSelect.appendChild(option);
+
+            // 3. Закрываем модальное окно.
+            dialog.close();
+
+            // 4. Переключаемся на созданное пространство.
+            //
+            // Используем уже написанную функцию:
+            // она очистит данные старого бюджета и загрузит новые.
+            workspaceSelect.value = String(newWorkspace.id);
+
+            await switchWorkspace(newWorkspace.id);
+
+            // 5. Показываем сообщение об успехе.
+            showToast('Финансовое пространство создано');
+
+        } catch (error) {
+
+            console.error('Create workspace error:', error);
+
+            showToast(
+                error.message || 'Не удалось создать пространство',
+                'error'
+            );
+
+        } finally {
+
+            // Снова разрешаем создавать пространства.
+            submitButton.disabled = false;
+            createButton.disabled = false;
+        }
+    });
+
+}
+
+
+
+/*
+ * =====================================================
+ * ПЕРЕКЛЮЧЕНИЕ ФИНАНСОВОГО ПРОСТРАНСТВА
+ * =====================================================
+ *
+ * При смене workspace:
+ *
+ * 1. Блокируем финансовые формы.
+ * 2. Закрываем открытые окна.
+ * 3. Очищаем старые операции и категории.
+ * 4. Выбираем новое пространство.
+ * 5. Загружаем его финансовые данные.
+ *
+ * Так данные разных пространств не смешиваются.
+ */
+
+// true означает, что переключение выполняется.
+let workspaceSwitching = false;
+
+// Список элементов, которые нельзя использовать
+// во время переключения пространства.
+function setFinanceControlsDisabled(disabled) {
+
+    // Блокируем поля и кнопки формы добавления.
+    for (const element of $('add-form').elements) {
+        element.disabled = disabled;
+    }
+
+    // Блокируем действия в истории транзакций.
+    for (const button of
+        $('transaction-list').querySelectorAll('button[data-action]')) {
+        button.disabled = disabled;
+    }
+}
+
+async function switchWorkspace(workspaceId) {
+
+    // Предотвращаем одновременные переключения.
+    if (workspaceSwitching) return;
+
+    workspaceSwitching = true;
+
+    const workspaceSelect = $('workspace-select');
+
+    workspaceSelect.disabled = true;
+    setFinanceControlsDisabled(true);
+
+    try {
+
+        // Закрываем окна редактирования и удаления,
+        // чтобы случайно не применить изменения
+        // к транзакции другого пространства.
+        if ($('edit-dialog').open) {
+            $('edit-dialog').close();
+        }
+
+        if ($('delete-dialog').open) {
+            $('delete-dialog').close();
+        }
+
+        editingTransactionId = null;
+        deletingTransactionId = null;
+
+        // Устанавливаем новое пространство в api.js.
+        setCurrentWorkspace(workspaceId);
+
+        // Очищаем данные предыдущего пространства.
+        clearTransactions();
+        clearCategories();
+
+        // Загружаем его категории.
+        // Если категории недоступны, история всё равно
+        // может продолжить загрузку.
+        await refreshCategories().catch(error => {
+            console.error('Workspace categories:', error);
+            showToast('Не удалось загрузить категории', 'error');
+        });
+
+        // Загружаем историю и пересчитываем баланс.
+        await loadTransactions();
+
+        console.log('Workspace switched:', workspaceId);
+
+    } catch (error) {
+
+        console.error('Workspace switch error:', error);
+        showToast('Не удалось загрузить пространство', 'error');
+
+    } finally {
+
+        workspaceSwitching = false;
+
+        // Разрешаем переключаться снова.
+        workspaceSelect.disabled = false;
+
+        // Возвращаем доступ к финансовой форме.
+        setFinanceControlsDisabled(false);
+    }
+}
+
+
+
+/*
+ * =====================================================
  * 5. ЗАПУСК ПРИЛОЖЕНИЯ
  * =====================================================
  *
@@ -226,6 +488,79 @@ async function initApp() {
 
     initTheme();
 
+
+    // =====================================================
+    // ПРОВЕРКА АВТОРИЗАЦИИ И ОТОБРАЖЕНИЕ АККАУНТА
+    // =====================================================
+
+    try {
+
+        // Запрашиваем текущего пользователя через GET /auth/me.
+        // Backend определяет его по серверной сессии.
+        const user = await getCurrentUser();
+
+        // Если пользователь не авторизован,
+        // возвращаем его на главную страницу.
+        if (!user) {
+            window.location.replace('./index.html');
+            return;
+        }
+
+        // Показываем имя Google-аккаунта.
+        // Если имя отсутствует, используем email.
+        $('account-name').textContent =
+            user.display_name || user.email;
+
+        // Показываем email текущего аккаунта.
+        $('account-email').textContent = user.email;
+
+        console.log('Пользователь авторизован:', user.display_name);
+
+    } catch (error) {
+
+        // Если backend недоступен, не загружаем
+        // финансовые данные и показываем ошибку.
+        console.error('Ошибка проверки авторизации:', error);
+
+        showToast(
+            'Не удалось проверить авторизацию. Проверь сервер.',
+            'error'
+        );
+
+        return;
+    }
+
+
+    // =====================================================
+    // ВЫХОД ИЗ FAMILY HUB
+    // =====================================================
+
+    $('logout-button').addEventListener('click', async () => {
+
+        const button = $('logout-button');
+
+        // Не допускаем повторного нажатия во время запроса.
+        button.disabled = true;
+
+        try {
+
+            // Уничтожаем сессию на backend.
+            await logout();
+
+            // После успешного выхода открываем главную страницу.
+            window.location.replace('./index.html');
+
+        } catch (error) {
+
+            console.error('Logout error:', error);
+
+            showToast('Не удалось выйти из аккаунта', 'error');
+
+            button.disabled = false;
+        }
+    });
+
+
     // Ставим сегодняшнюю локальную дату.
     $('date').value = formatDate(new Date());
 
@@ -233,6 +568,8 @@ async function initApp() {
     initFilters(renderTransactions);
     initTransactionEvents();
     initCategorySuggestions();
+    // Подключаем обработчики окна создания пространства.
+    initCreateWorkspaceDialog();
 
 
     // =================================================
@@ -278,6 +615,56 @@ async function initApp() {
 
         // Передаём выбранный ID в api.js.
         setCurrentWorkspace(workspace.id);
+        // =================================================
+        // ЗАПОЛНЯЕМ ПЕРЕКЛЮЧАТЕЛЬ ПРОСТРАНСТВ
+        // =================================================
+
+        // Находим наш HTML <select id="workspace-select">.
+        const workspaceSelect = $('workspace-select');
+
+        // Удаляем временную надпись "Загрузка пространств...".
+        workspaceSelect.replaceChildren();
+
+        // Проходим по всем пространствам пользователя.
+        for (const item of workspaces) {
+
+            // Создаём HTML-элемент <option>.
+            const option = document.createElement('option');
+
+            // ID пространства будет значением option.
+            option.value = String(item.id);
+
+            // Название пространства будет видно пользователю.
+            option.textContent = item.name;
+
+            // Добавляем вариант в выпадающий список.
+            workspaceSelect.appendChild(option);
+        }
+
+        // Показываем выбранное пространство.
+        workspaceSelect.value = String(workspace.id);
+
+
+        // =================================================
+        // ОБРАБОТЧИК ПЕРЕКЛЮЧЕНИЯ WORKSPACE
+        // =================================================
+
+        // change срабатывает, когда пользователь выбирает
+        // другое пространство в выпадающем списке.
+        workspaceSelect.addEventListener('change', async () => {
+
+            const selectedId = workspaceSelect.value;
+
+            // Вызываем функцию, которая очистит старые
+            // данные и загрузит новое пространство.
+            await switchWorkspace(selectedId);
+        });
+
+        // Разрешаем пользователю открывать список.
+        // Если пространство пока только одно,
+        // других вариантов просто не будет.
+        workspaceSelect.disabled = false;
+
 
         console.log(
             'Выбрано пространство:',

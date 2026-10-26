@@ -264,3 +264,78 @@ export async function getWorkspaces() {
 
     return workspaces;
 }
+
+
+/*
+ * ==========================================================
+ * POST /workspaces — СОЗДАНИЕ ФИНАНСОВОГО ПРОСТРАНСТВА
+ * ==========================================================
+ *
+ * data = { name: 'Личный бюджет' }
+ *
+ * Backend:
+ * 1. Определяет пользователя по Google-сессии.
+ * 2. Создаёт запись в таблице workspaces.
+ * 3. Добавляет создателя в workspace_members.
+ * 4. Возвращает созданное пространство.
+ */
+
+export async function createWorkspace(name) {
+
+    // Отправляем запрос через нашу общую функцию.
+    // apiFetch автоматически добавит credentials: 'include'.
+    return apiFetch(`${API_BASE}/workspaces`, {
+
+        method: 'POST',
+
+        headers: {
+            'Content-Type': 'application/json'
+        },
+
+        // Преобразуем название в JSON.
+        body: JSON.stringify({
+            name: name
+        })
+    });
+}
+
+
+/*
+ * POST /auth/logout
+ *
+ * Просим backend уничтожить текущую сессию.
+ */
+
+export async function logout() {
+
+    return apiFetch(`${API_BASE}/auth/logout`, {
+        method: 'POST'
+    });
+}
+
+/*
+ * =====================================================
+ * GET /auth/me — ПРОВЕРКА ТЕКУЩЕГО ПОЛЬЗОВАТЕЛЯ
+ * =====================================================
+ *
+ * Проверяем сессию через Express.
+ *
+ * 200 — пользователь авторизован.
+ * 401 — пользователь не авторизован.
+ *
+ * Другие ошибки передаём дальше,
+ * чтобы не путать недоступный сервер с выходом.
+ */
+
+export async function getCurrentUser() {
+
+    const response = await fetch(`${API_BASE}/auth/me`, {
+        credentials: 'include'
+    });
+
+    if (response.status === 401) {
+        return null;
+    }
+
+    return readResponse(response);
+}
