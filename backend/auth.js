@@ -340,9 +340,19 @@ router.post('/logout', (req, res) => {
             });
         }
 
+        // Имя cookie должно совпадать с настройкой
+        // в backend/session.js.
+        //
+        // development -> familyhub.dev.sid
+        // production  -> familyhub.sid
+
+        const cookieName = process.env.NODE_ENV === 'development'
+            ? 'familyhub.dev.sid'
+            : 'familyhub.sid';
+
         // Удаляем cookie с идентификатором сессии.
         // express-session по умолчанию использует connect.sid.
-        res.clearCookie('connect.sid', {
+        res.clearCookie(cookieName, {
             path: '/'
         });
 

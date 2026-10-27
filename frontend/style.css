@@ -1144,3 +1144,254 @@ h2 {
         max-width: 180px;
     }
 }
+
+
+/* ==========================================================
+   FAMILY HUB — МЕНЮ АККАУНТА И ПРИГЛАШЕНИЯ
+   ==========================================================
+
+   Аватар пользователя открывает меню аккаунта.
+
+   Когда поступают приглашения:
+   - поверх аватара появляется колокольчик;
+   - рядом отображается количество приглашений.
+
+   JavaScript управляет атрибутом hidden.
+*/
+
+
+/* ==========================================================
+   1. КНОПКА-АВАТАР
+   ========================================================== */
+
+.account-avatar-button {
+    /* Основа для абсолютного позиционирования значков. */
+    position: relative;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    flex: 0 0 auto;
+
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+
+    background: transparent;
+    color: inherit;
+
+    cursor: pointer;
+    font: inherit;
+}
+
+/* Сохраняем внешний вид существующего аватара. */
+.account-avatar-button .account-avatar {
+    display: inline-flex;
+    pointer-events: none;
+}
+
+/* Подсветка для пользователей клавиатуры. */
+.account-avatar-button:focus-visible {
+    outline: 2px solid #9b87f5;
+    outline-offset: 4px;
+}
+
+
+/* ==========================================================
+   2. КОЛОКОЛЬЧИК ПОВЕРХ АВАТАРА
+   ========================================================== */
+
+.avatar-notification-icon {
+    position: absolute;
+
+    /* Размещаем значок в верхнем правом углу аватара. */
+    top: -3px;
+    right: -3px;
+
+    display: grid;
+    place-items: center;
+
+    width: 19px;
+    height: 19px;
+
+    border-radius: 50%;
+
+    background: #8d78ec;
+    color: #fff;
+
+    border: 2px solid #101526;
+
+    /* Значок не перехватывает нажатия на аватар. */
+    pointer-events: none;
+}
+
+/* Если приглашений нет — значок полностью скрыт. */
+.avatar-notification-icon[hidden] {
+    display: none;
+}
+
+
+/* ==========================================================
+   3. СЧЁТЧИК ПРИГЛАШЕНИЙ
+   ========================================================== */
+
+.avatar-notification-count:not([hidden]) {
+    position: absolute;
+
+    right: -5px;
+    bottom: -5px;
+
+    display: grid;
+    place-items: center;
+
+    min-width: 17px;
+    height: 17px;
+    padding: 0 3px;
+
+    border-radius: 10px;
+
+    background: #e94d78;
+    color: #fff;
+
+    font-size: 10px;
+    font-weight: 700;
+
+    pointer-events: none;
+}
+
+/* Скрываем счётчик, когда приглашений нет. */
+.avatar-notification-count[hidden] {
+    display: none;
+}
+
+
+/* ==========================================================
+   4. ИМЯ ПОЛЬЗОВАТЕЛЯ И СТРЕЛОЧКА МЕНЮ
+   ========================================================== */
+
+.account-details {
+    min-width: 0;
+}
+
+.account-name-chevron {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.account-menu-chevron {
+    width: 14px;
+    height: 14px;
+
+    opacity: 0.65;
+    flex-shrink: 0;
+}
+
+
+/* ==========================================================
+   5. КОМПАКТНАЯ ИКОНКА ВЫХОДА
+   ========================================================== */
+
+.logout-icon-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+
+/* ==========================================================
+   6. ПУНКТЫ МЕНЮ АККАУНТА
+   ========================================================== */
+
+.account-menu-actions {
+    display: grid;
+    gap: 8px;
+
+    margin-top: 16px;
+}
+
+.account-menu-row {
+    width: 100%;
+
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    padding: 11px 12px;
+
+    border-radius: 10px;
+    border: 1px solid var(--border, #343a50);
+
+    background: transparent;
+    color: inherit;
+
+    font: inherit;
+    text-align: left;
+
+    cursor: pointer;
+}
+
+/* Неактивные пункты меню. */
+.account-menu-row:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+/* Число приглашений справа от названия пункта. */
+.account-menu-row .menu-count {
+    margin-left: auto;
+    font-weight: 700;
+}
+
+
+/* ==========================================================
+   7. КАРТОЧКИ ПРИГЛАШЕНИЙ
+   ========================================================== */
+
+.invitation-card {
+    border: 1px solid var(--border, #343a50);
+    border-radius: 12px;
+
+    padding: 14px;
+    margin: 12px 0;
+}
+
+.invitation-card h3 {
+    font-size: 1rem;
+    margin: 0 0 5px;
+}
+
+.invitation-card p {
+    margin: 5px 0 12px;
+}
+
+.invitation-card button {
+    margin-top: 5px;
+}
+
+
+/* ==========================================================
+   8. ПЕРЕКЛЮЧЕНИЕ ЭКРАНОВ МЕНЮ
+   ========================================================== */
+
+/* Скрываем неактивный экран меню аккаунта. */
+.account-menu-view[hidden] {
+    display: none;
+}
+
+.account-menu-back {
+    margin-bottom: 14px;
+}
+
+
+/* ==========================================================
+   9. МОБИЛЬНЫЕ ЭКРАНЫ
+   ========================================================== */
+
+@media (max-width: 580px) {
+    /* На маленьком экране экономим место. */
+    .account-menu-chevron {
+        display: none;
+    }
+}

@@ -28,6 +28,10 @@ const router = express.Router();
 // в финансовом пространстве.
 const requireWorkspace = require('./middleware/requireWorkspace');
 
+// Проверяет, что пользователь — создатель пространства.
+const requireWorkspaceOwner =
+    require('./middleware/requireWorkspaceOwner');
+
 
 // =====================================================
 // ЗАЩИТА ВСЕХ МАРШРУТОВ
@@ -271,5 +275,145 @@ router.get(
 );
 
 
+/*
+ * =====================================================
+ * POST /workspaces/:workspaceId/invitations
+ * =====================================================
+ *
+ * Создаёт приглашение в финансовое пространство.
+ *
+ * Только владелец пространства может приглашать
+ * новых участников.
+ *
+ * Пример запроса:
+ * {
+ *     "email": "wife@example.com"
+ * }
+ *
+ * Приглашение пока не предоставляет доступ.
+ * Пользователь должен будет принять его отдельно.
+ */
+
+router.post(
+    '/:workspaceId/invitations',
+    requireWorkspaceOwner,
+    async (req, res) => {
+
+        // Получаем email из запроса.
+        const { email } = req.body ?? {};
+
+        // Проверяем, что email передан строкой.
+        if (typeof email !== 'string') {
+            return res.status(400).json({
+                error: 'Email is required'
+            });
+        }
+
+        // Приводим email к единому формату.
+        // Это соответствует ограничению в нашей таблице.
+        const normalizedEmail = email.trim().toLowerCase();
+
+        // Проверяем базовый формат и длину email.
+        // Это не полная проверка всех допустимых email,
+        // но для нашего MVP её достаточно.
+        if (
+            normalizedEmail.length > 254 ||
+            !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)
+        ) {
+            return res.status(400).json({
+                error: 'Invalid email address'
+            });
+        }
+
+        try {
+
+            // Проверяем, что пользователь не пытается
+            // пригласить самого себя.
+            const currentUser = await pool.query(
+                `
+                SELECT email
+                FROM users
+                WHERE id = $1
+                `,
+                [req.session.userId]
+            );
+
+            if (
+                currentUser.rows[0]?.email.toLowerCase() ===
+                normalizedEmail
+            ) {
+                return res.status(400).json({
+                    error: 'You cannot invite yourself'
+                });
+            }
+
+            // Если пользователь уже зарегистрирован,
+            // проверяем, не состоит ли он в пространстве.
+            const existingMember = await pool.query(
+                `
+                SELECT 1
+                FROM users u
+                INNER JOIN workspace_members wm
+                    ON wm.user_id = u.id
+                WHERE wm.workspace_id = $1
+                  AND lower(u.email) = $2
+                `,
+                [req.workspaceId, normalizedEmail]
+            );
+
+            if (existingMember.rows.length > 0) {
+                return res.status(409).json({
+                    error: 'User is already a workspace member'
+                });
+            }
+
+            // Создаём ожидающее приглашение.
+            const result = await pool.query(
+                `
+                INSERT INTO workspace_invitations
+                    (workspace_id, invited_email, invited_by)
+                VALUES ($1, $2, $3)
+                RETURNING
+                    id,
+                    workspace_id,
+                    invited_email,
+                    status,
+                    created_at
+                `,
+                [
+                    req.workspaceId,
+                    normalizedEmail,
+                    req.session.userId
+                ]
+            );
+
+            const invitation = result.rows[0];
+
+            return res.status(201).json({
+                id: String(invitation.id),
+                workspace_id: String(invitation.workspace_id),
+                invited_email: invitation.invited_email,
+                status: invitation.status,
+                created_at: invitation.created_at
+            });
+
+        } catch (error) {
+
+            // PostgreSQL: нарушение уникального индекса.
+            // Значит, активное приглашение уже существует.
+            if (error.code === '23505') {
+                return res.status(409).json({
+                    error: 'Pending invitation already exists'
+                });
+            }
+
+            console.error('Create invitation error:', error);
+
+            return res.status(500).json({
+                error: 'Failed to create invitation'
+            });
+        }
+    }
+);
 
 module.exports = router;

@@ -105,6 +105,14 @@ app.use('/workspaces', workspaceRouter);
 // Защищённые маршруты финансовых операций.
 app.use('/workspaces', workspaceTransactionsRouter);
 
+// =====================================================
+// ПРИГЛАШЕНИЯ ПОЛЬЗОВАТЕЛЯ
+// =====================================================
+
+const invitationsRouter = require('./invitations');
+
+app.use('/invitations', invitationsRouter);
+
 
 /*
  * =====================================================
