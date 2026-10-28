@@ -28,6 +28,10 @@ const router = express.Router();
 // в финансовом пространстве.
 const requireWorkspace = require('./middleware/requireWorkspace');
 
+// Проверяет, что пользователь — создатель пространства.
+const requireWorkspaceOwner =
+    require('./middleware/requireWorkspaceOwner');
+
 
 // =====================================================
 // ЗАЩИТА ВСЕХ МАРШРУТОВ
@@ -206,6 +210,91 @@ router.get('/', async (req, res) => {
 
 /*
  * =====================================================
+ * GET /workspaces/:workspaceId/members
+ * =====================================================
+ *
+ * Возвращает участников выбранного пространства.
+ *
+ * Доступ:
+ * - владелец пространства;
+ * - любой участник пространства.
+ *
+ * Чужие пользователи не смогут получить список,
+ * потому что requireWorkspace проверяет членство.
+ */
+
+router.get(
+    '/:workspaceId/members',
+    requireWorkspace,
+    async (req, res) => {
+
+        // Получаем ID пространства, которое уже
+        // проверил middleware requireWorkspace.
+        const workspaceId = req.workspaceId;
+
+        try {
+
+            const result = await pool.query(
+                `
+                SELECT
+                    u.id,
+                    u.display_name,
+                    u.email,
+
+                    CASE
+                        WHEN w.created_by = u.id
+                            THEN 'owner'
+                        ELSE 'member'
+                    END AS role
+
+                FROM workspace_members wm
+
+                INNER JOIN users u
+                    ON u.id = wm.user_id
+
+                INNER JOIN workspaces w
+                    ON w.id = wm.workspace_id
+
+                WHERE wm.workspace_id = $1
+
+                ORDER BY
+                    CASE
+                        WHEN w.created_by = u.id THEN 0
+                        ELSE 1
+                    END,
+                    u.display_name ASC,
+                    u.id ASC
+                `,
+                [workspaceId]
+            );
+
+            // Преобразуем BIGINT ID из PostgreSQL.
+            const members = result.rows.map(member => ({
+                id: Number(member.id),
+                display_name: member.display_name,
+                email: member.email,
+                role: member.role
+            }));
+
+            return res.json(members);
+
+        } catch (error) {
+
+            console.error(
+                'Failed to load workspace members:',
+                error
+            );
+
+            return res.status(500).json({
+                error: 'Failed to load workspace members'
+            });
+        }
+    }
+);
+
+
+/*
+ * =====================================================
  * GET /workspaces/:workspaceId/categories
  * =====================================================
  *
@@ -270,6 +359,235 @@ router.get(
     }
 );
 
+
+/*
+ * =====================================================
+ * POST /workspaces/:workspaceId/invitations
+ * =====================================================
+ *
+ * Создаёт приглашение в финансовое пространство.
+ *
+ * Только владелец пространства может приглашать
+ * новых участников.
+ *
+ * Пример запроса:
+ * {
+ *     "email": "wife@example.com"
+ * }
+ *
+ * Приглашение пока не предоставляет доступ.
+ * Пользователь должен будет принять его отдельно.
+ */
+
+router.post(
+    '/:workspaceId/invitations',
+    requireWorkspaceOwner,
+    async (req, res) => {
+
+        // Получаем email из запроса.
+        const { email } = req.body ?? {};
+
+        // Проверяем, что email передан строкой.
+        if (typeof email !== 'string') {
+            return res.status(400).json({
+                error: 'Email is required'
+            });
+        }
+
+        // Приводим email к единому формату.
+        // Это соответствует ограничению в нашей таблице.
+        const normalizedEmail = email.trim().toLowerCase();
+
+        // Проверяем базовый формат и длину email.
+        // Это не полная проверка всех допустимых email,
+        // но для нашего MVP её достаточно.
+        if (
+            normalizedEmail.length > 254 ||
+            !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)
+        ) {
+            return res.status(400).json({
+                error: 'Invalid email address'
+            });
+        }
+
+        try {
+
+            // Проверяем, что пользователь не пытается
+            // пригласить самого себя.
+            const currentUser = await pool.query(
+                `
+                SELECT email
+                FROM users
+                WHERE id = $1
+                `,
+                [req.session.userId]
+            );
+
+            if (
+                currentUser.rows[0]?.email.toLowerCase() ===
+                normalizedEmail
+            ) {
+                return res.status(400).json({
+                    error: 'You cannot invite yourself'
+                });
+            }
+
+            // Если пользователь уже зарегистрирован,
+            // проверяем, не состоит ли он в пространстве.
+            const existingMember = await pool.query(
+                `
+                SELECT 1
+                FROM users u
+                INNER JOIN workspace_members wm
+                    ON wm.user_id = u.id
+                WHERE wm.workspace_id = $1
+                  AND lower(u.email) = $2
+                `,
+                [req.workspaceId, normalizedEmail]
+            );
+
+            if (existingMember.rows.length > 0) {
+                return res.status(409).json({
+                    error: 'User is already a workspace member'
+                });
+            }
+
+            // Создаём ожидающее приглашение.
+            const result = await pool.query(
+                `
+                INSERT INTO workspace_invitations
+                    (workspace_id, invited_email, invited_by)
+                VALUES ($1, $2, $3)
+                RETURNING
+                    id,
+                    workspace_id,
+                    invited_email,
+                    status,
+                    created_at
+                `,
+                [
+                    req.workspaceId,
+                    normalizedEmail,
+                    req.session.userId
+                ]
+            );
+
+            const invitation = result.rows[0];
+
+            return res.status(201).json({
+                id: String(invitation.id),
+                workspace_id: String(invitation.workspace_id),
+                invited_email: invitation.invited_email,
+                status: invitation.status,
+                created_at: invitation.created_at
+            });
+
+        } catch (error) {
+
+            // PostgreSQL: нарушение уникального индекса.
+            // Значит, активное приглашение уже существует.
+            if (error.code === '23505') {
+                return res.status(409).json({
+                    error: 'Pending invitation already exists'
+                });
+            }
+
+            console.error('Create invitation error:', error);
+
+            return res.status(500).json({
+                error: 'Failed to create invitation'
+            });
+        }
+    }
+);
+
+
+/*
+ * =====================================================
+ * DELETE /workspaces/:workspaceId/members/:userId
+ * =====================================================
+ *
+ * Удаление участника финансового пространства.
+ *
+ * Правила:
+ * 1. Только владелец может удалять участников.
+ * 2. Владельца удалить нельзя.
+ * 3. Удаляем только из выбранного пространства.
+ * 4. Аккаунт пользователя не удаляется.
+ */
+
+router.delete(
+    '/:workspaceId/members/:userId',
+    requireWorkspaceOwner,
+    async (req, res) => {
+
+        // ID участника, которого хотим удалить.
+        const memberId = req.params.userId;
+
+        // Проверяем формат ID.
+        if (!/^[1-9]\d*$/.test(String(memberId))) {
+            return res.status(400).json({
+                error: 'Invalid member ID'
+            });
+        }
+
+        // Дополнительная проверка источника запроса.
+        const origin = req.get('Origin');
+
+        if (origin !== 'http://localhost:5500') {
+            return res.status(403).json({
+                error: 'Forbidden origin'
+            });
+        }
+
+        try {
+
+            /*
+             * Удаляем участника только тогда, когда:
+             *
+             * - он состоит в выбранном пространстве;
+             * - он НЕ является владельцем.
+             *
+             * Условие проверяем непосредственно в SQL.
+             */
+
+            const result = await pool.query(
+                `
+                DELETE FROM workspace_members AS wm
+
+                USING workspaces AS w
+
+                WHERE wm.workspace_id = $1
+                  AND wm.user_id = $2
+                  AND w.id = wm.workspace_id
+                  AND w.created_by <> wm.user_id
+
+                RETURNING wm.user_id
+                `,
+                [req.workspaceId, memberId]
+            );
+
+            if (result.rows.length === 0) {
+                return res.status(404).json({
+                    error: 'Removable member not found'
+                });
+            }
+
+            return res.json({
+                message: 'Member removed successfully',
+                user_id: String(result.rows[0].user_id)
+            });
+
+        } catch (error) {
+
+            console.error('Remove workspace member error:', error);
+
+            return res.status(500).json({
+                error: 'Failed to remove workspace member'
+            });
+        }
+    }
+);
 
 
 module.exports = router;

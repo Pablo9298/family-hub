@@ -26,6 +26,17 @@ if (!process.env.SESSION_SECRET) {
 // Создаём middleware для сессий.
 const sessionMiddleware = session({
 
+    // У каждого окружения своё имя cookie.
+    //
+    // Это важно, потому что development и production
+    // могут работать на localhost в одном браузере.
+    //
+    // Иначе браузер будет отправлять одну и ту же
+    // cookie обеим версиям приложения.
+    name: process.env.NODE_ENV === 'development'
+        ? 'familyhub.dev.sid'
+        : 'familyhub.sid',
+
     // Храним сессии в PostgreSQL вместо памяти Node.js.
     store: new PgSession({
         pool: pool,

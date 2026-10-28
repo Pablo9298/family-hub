@@ -51,6 +51,10 @@ const pool = require('./db');
 // Настройки серверных сессий.
 const sessionMiddleware = require('./session');
 
+// Проверка источника запросов, изменяющих данные.
+const requireTrustedOrigin =
+    require('./middleware/requireTrustedOrigin');
+
 // Маршруты авторизации через Google.
 const authRouter = require('./auth');
 
@@ -99,11 +103,23 @@ app.use(sessionMiddleware);
 // Все маршруты из auth.js будут начинаться с /auth.
 app.use('/auth', authRouter);
 
+// Защищаем все последующие API-маршруты,
+// изменяющие данные (POST, PUT, PATCH, DELETE).
+app.use(requireTrustedOrigin);
+
 // Все маршруты workspaces.js будут начинаться с /workspaces.
 app.use('/workspaces', workspaceRouter);
 
 // Защищённые маршруты финансовых операций.
 app.use('/workspaces', workspaceTransactionsRouter);
+
+// =====================================================
+// ПРИГЛАШЕНИЯ ПОЛЬЗОВАТЕЛЯ
+// =====================================================
+
+const invitationsRouter = require('./invitations');
+
+app.use('/invitations', invitationsRouter);
 
 
 /*

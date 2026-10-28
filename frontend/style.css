@@ -1144,3 +1144,452 @@ h2 {
         max-width: 180px;
     }
 }
+
+
+/* ==========================================================
+   FAMILY HUB — МЕНЮ АККАУНТА И ПРИГЛАШЕНИЯ
+   ==========================================================
+
+   Аватар пользователя открывает меню аккаунта.
+
+   Когда поступают приглашения:
+   - поверх аватара появляется колокольчик;
+   - рядом отображается количество приглашений.
+
+   JavaScript управляет атрибутом hidden.
+*/
+
+
+/* ==========================================================
+   1. КНОПКА-АВАТАР
+   ========================================================== */
+
+.account-avatar-button {
+    /* Основа для абсолютного позиционирования значков. */
+    position: relative;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    flex: 0 0 auto;
+
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+
+    background: transparent;
+    color: inherit;
+
+    cursor: pointer;
+    font: inherit;
+}
+
+/* Аватар с первой буквой имени */
+.account-avatar-button .account-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Подсветка для пользователей клавиатуры. */
+.account-avatar-button:focus-visible {
+    outline: 2px solid #9b87f5;
+    outline-offset: 4px;
+}
+
+
+/* ==========================================================
+   2. КОЛОКОЛЬЧИК ПОВЕРХ АВАТАРА
+   ========================================================== */
+
+.avatar-notification-icon {
+    position: absolute;
+
+    /* Размещаем значок в верхнем правом углу аватара. */
+    top: -3px;
+    right: -3px;
+
+    display: grid;
+    place-items: center;
+
+    width: 19px;
+    height: 19px;
+
+    border-radius: 50%;
+
+    background: #8d78ec;
+    color: #fff;
+
+    border: 2px solid #101526;
+
+    /* Значок не перехватывает нажатия на аватар. */
+    pointer-events: none;
+}
+
+/* Если приглашений нет — значок полностью скрыт. */
+.avatar-notification-icon[hidden] {
+    display: none;
+}
+
+
+/* ==========================================================
+   3. СЧЁТЧИК ПРИГЛАШЕНИЙ
+   ========================================================== */
+
+.avatar-notification-count:not([hidden]) {
+    position: absolute;
+
+    right: -5px;
+    bottom: -5px;
+
+    display: grid;
+    place-items: center;
+
+    min-width: 17px;
+    height: 17px;
+    padding: 0 3px;
+
+    border-radius: 10px;
+
+    background: #e94d78;
+    color: #fff;
+
+    font-size: 10px;
+    font-weight: 700;
+
+    pointer-events: none;
+}
+
+/* Скрываем счётчик, когда приглашений нет. */
+.avatar-notification-count[hidden] {
+    display: none;
+}
+
+
+/* ==========================================================
+   4. ИМЯ ПОЛЬЗОВАТЕЛЯ И СТРЕЛОЧКА МЕНЮ
+   ========================================================== */
+
+.account-details {
+    min-width: 0;
+}
+
+.account-name-chevron {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.account-menu-chevron {
+    width: 14px;
+    height: 14px;
+
+    opacity: 0.65;
+    flex-shrink: 0;
+}
+
+
+/* ==========================================================
+   5. КОМПАКТНАЯ ИКОНКА ВЫХОДА
+   ========================================================== */
+
+.logout-icon-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+
+/* ==========================================================
+   6. ПУНКТЫ МЕНЮ АККАУНТА
+   ========================================================== */
+
+.account-menu-actions {
+    display: grid;
+    gap: 8px;
+
+    margin-top: 16px;
+}
+
+.account-menu-row {
+    width: 100%;
+
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    padding: 11px 12px;
+
+    border-radius: 10px;
+    border: 1px solid var(--border, #343a50);
+
+    background: transparent;
+    color: inherit;
+
+    font: inherit;
+    text-align: left;
+
+    cursor: pointer;
+}
+
+/* Неактивные пункты меню. */
+.account-menu-row:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+/* Число приглашений справа от названия пункта. */
+.account-menu-row .menu-count {
+    margin-left: auto;
+    font-weight: 700;
+}
+
+
+/* ==========================================================
+   7. КАРТОЧКИ ПРИГЛАШЕНИЙ
+   ========================================================== */
+
+.invitation-card {
+    border: 1px solid var(--border, #343a50);
+    border-radius: 12px;
+
+    padding: 14px;
+    margin: 12px 0;
+}
+
+.invitation-card h3 {
+    font-size: 1rem;
+    margin: 0 0 5px;
+}
+
+.invitation-card p {
+    margin: 5px 0 12px;
+}
+
+.invitation-card button {
+    margin-top: 5px;
+}
+
+
+/* ==========================================================
+   8. ПЕРЕКЛЮЧЕНИЕ ЭКРАНОВ МЕНЮ
+   ========================================================== */
+
+/* Скрываем неактивный экран меню аккаунта. */
+.account-menu-view[hidden] {
+    display: none;
+}
+
+.account-menu-back {
+    margin-bottom: 14px;
+}
+
+
+/* ==========================================================
+   9. МОБИЛЬНЫЕ ЭКРАНЫ
+   ========================================================== */
+
+@media (max-width: 580px) {
+    /* На маленьком экране экономим место. */
+    .account-menu-chevron {
+        display: none;
+    }
+}
+
+
+/* =====================================================
+   FAMILY HUB — УЧАСТНИКИ ПРОСТРАНСТВА
+   ===================================================== */
+
+/* Скрываем надпись визуально, но оставляем
+   её доступной для экранного чтения. */
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Компактный список участников */
+.workspace-members-section {
+    margin: 14px 0 20px;
+}
+
+#workspace-members-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* Отдельная строка участника */
+.workspace-member-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+}
+
+/* Имя и email */
+.workspace-member-details {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+    flex: 1;
+}
+
+.workspace-member-details strong {
+    font-size: 14px;
+    overflow-wrap: anywhere;
+}
+
+.workspace-member-details p {
+    margin: 0;
+    font-size: 12px;
+    overflow-wrap: anywhere;
+}
+
+/* Роль пользователя */
+.workspace-member-role {
+    flex-shrink: 0;
+    font-size: 11px;
+    padding: 5px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+}
+
+/* Приглашение в одну строку */
+.workspace-invite-row {
+    display: flex;
+    align-items: stretch;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+/* Поле email в стиле остальных полей Family Hub */
+.workspace-invite-row input {
+    flex: 1;
+    min-width: 0;
+    width: 100%;
+    margin: 0;
+
+    padding: 13px 16px;
+
+    /* Тёмное поле вместо стандартного серого */
+    background: var(--surface, #101526);
+    color: var(--text, #f5f5f7);
+
+    border: 1px solid var(--border);
+    border-radius: 12px;
+
+    font: inherit;
+    font-size: 14px;
+
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+/* Текст подсказки */
+.workspace-invite-row input::placeholder {
+    color: var(--muted, #9299ad);
+    opacity: 1;
+}
+
+/* Подсветка при вводе */
+.workspace-invite-row input:focus {
+    border-color: #9475f5;
+    box-shadow: 0 0 0 3px rgba(148, 117, 245, 0.15);
+}
+
+.workspace-invite-row button {
+    flex-shrink: 0;
+    min-width: 46px;
+    padding: 0 14px;
+    font-size: 19px;
+}
+
+/* Сообщение после отправки */
+#workspace-invite-status:empty {
+    display: none;
+}
+
+#workspace-invite-status:not(:empty) {
+    margin: 10px 0 0;
+    font-size: 13px;
+}
+
+/* Круглый аватар участника */
+.workspace-member-avatar {
+    width: 42px;
+    height: 42px;
+    flex-shrink: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 50%;
+
+    background: rgba(148, 117, 245, 0.16);
+    border: 1px solid rgba(148, 117, 245, 0.35);
+
+    color: #a78bfa;
+    font-size: 17px;
+    font-weight: 700;
+}
+
+/* Корона владельца */
+.workspace-member-owner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    color: #a78bfa;
+    border: none;
+    padding: 5px;
+}
+
+/* =====================================================
+   УДАЛЕНИЕ УЧАСТНИКА
+   ===================================================== */
+
+.workspace-member-remove {
+    width: 38px;
+    height: 38px;
+    min-width: 38px;
+    padding: 0;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    flex-shrink: 0;
+    border-radius: 11px;
+
+    color: var(--muted, #9299ad);
+    transition:
+        color 0.2s,
+        background 0.2s,
+        border-color 0.2s;
+}
+
+/* Красная подсветка при наведении */
+.workspace-member-remove:hover {
+    color: #fb7185;
+    background: rgba(251, 113, 133, 0.1);
+    border-color: rgba(251, 113, 133, 0.35);
+}
+
+.workspace-member-remove:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
