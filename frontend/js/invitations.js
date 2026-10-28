@@ -253,6 +253,13 @@ export function initInvitations() {
             acceptButton.className = 'btn btn-primary';
             acceptButton.textContent = 'Принять приглашение';
 
+            // Кнопка отклонения приглашения.
+            const declineButton = document.createElement('button');
+
+            declineButton.type = 'button';
+            declineButton.className = 'btn btn-secondary';
+            declineButton.textContent = 'Отклонить';
+
             // Сообщение о процессе принятия или ошибке.
             const status = document.createElement('p');
 
@@ -267,6 +274,7 @@ export function initInvitations() {
 
                 // Не допускаем повторных нажатий.
                 acceptButton.disabled = true;
+                declineButton.disabled = true;
 
                 status.textContent = 'Принимаем приглашение...';
 
@@ -321,6 +329,65 @@ export function initInvitations() {
 
                     // Разрешаем попробовать повторно.
                     acceptButton.disabled = false;
+                    declineButton.disabled = false;
+                }
+            });
+
+            // ==================================================
+            // 8. ОТКЛОНЕНИЕ ПРИГЛАШЕНИЯ
+            // ==================================================
+
+            declineButton.addEventListener('click', async () => {
+
+                // Блокируем обе кнопки, чтобы пользователь
+                // не мог одновременно принять и отклонить.
+                acceptButton.disabled = true;
+                declineButton.disabled = true;
+
+                status.textContent = 'Отклоняем приглашение...';
+
+                try {
+
+                    // Отправляем запрос на отклонение приглашения.
+                    const response = await fetch(
+                        `${API}/invitations/${encodeURIComponent(invite.id)}/decline`,
+                        {
+                            method: 'POST',
+
+                            // Передаём текущую серверную сессию.
+                            credentials: 'include',
+
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+
+                            body: JSON.stringify({})
+                        }
+                    );
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+
+                    // Убираем карточку сразу после успешного ответа.
+                    card.remove();
+
+                    // Обновляем приглашения и счётчик на аватаре.
+                    await loadInvitations();
+
+                } catch (error) {
+
+                    console.error(
+                        'Не удалось отклонить приглашение:',
+                        error
+                    );
+
+                    status.textContent =
+                        'Ошибка отклонения приглашения. Попробуй ещё раз.';
+
+                    // Разрешаем повторную попытку.
+                    acceptButton.disabled = false;
+                    declineButton.disabled = false;
                 }
             });
 
@@ -333,6 +400,7 @@ export function initInvitations() {
                 title,
                 description,
                 acceptButton,
+                declineButton,
                 status
             );
 

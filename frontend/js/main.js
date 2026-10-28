@@ -41,6 +41,9 @@ import {
 // Меню аккаунта, колокольчик и приглашения.
 import { initInvitations } from './invitations.js';
 
+// Управление участниками и отправка приглашений через UI.
+import { initWorkspaceMembers } from './workspaceMembers.js';
+
 // ID транзакций, над которыми сейчас открыто модальное окно.
 // null = редактирование/удаление сейчас не выбрано.
 let editingTransactionId = null;
@@ -517,6 +520,15 @@ async function initApp() {
         // Показываем email текущего аккаунта.
         $('account-email').textContent = user.email;
 
+        // Показываем первую букву имени в аватаре.
+        const avatar = document.querySelector('.account-avatar');
+
+        if (avatar) {
+            const displayName = user.display_name || user.email || '?';
+
+            avatar.textContent = displayName.trim().charAt(0).toUpperCase();
+        }
+
         console.log('Пользователь авторизован:', user.display_name);
 
     } catch (error) {
@@ -546,6 +558,10 @@ async function initApp() {
     // - покажет колокольчик, если приглашения есть;
     // - настроит меню аккаунта.
     initInvitations();
+
+    // Подключаем окно участников.
+    // При открытии модуль сам определит выбранное пространство.
+    initWorkspaceMembers();
 
 
     // =====================================================

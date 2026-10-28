@@ -255,4 +255,92 @@ router.post('/:id/accept', async (req, res) => {
 });
 
 
+/*
+ * =====================================================
+ * POST /invitations/:id/decline
+ * =====================================================
+ *
+ * Отклонение приглашения.
+ *
+ * Пользователь может отклонить только приглашение:
+ * - адресованное его Google email;
+ * - находящееся в статусе pending.
+ *
+ * В workspace_members ничего не добавляем.
+ */
+
+router.post('/:id/decline', async (req, res) => {
+
+    // 1. Проверяем источник запроса.
+    // Пока разрешаем только локальный frontend.
+    const origin = req.get('Origin');
+
+    if (origin !== 'http://localhost:5500') {
+        return res.status(403).json({
+            error: 'Forbidden origin'
+        });
+    }
+
+    // 2. Проверяем ID приглашения из URL.
+    const invitationId = req.params.id;
+
+    if (!/^[1-9]\d*$/.test(invitationId)) {
+        return res.status(400).json({
+            error: 'Invalid invitation ID'
+        });
+    }
+
+    // 3. Определяем пользователя по серверной сессии.
+    const userId = req.session.userId;
+
+    try {
+
+        // 4. Обновляем статус только своего
+        // ожидающего приглашения.
+        //
+        // Проверка принадлежности и изменение статуса
+        // выполняются одним SQL-запросом.
+        const result = await pool.query(
+            `
+            UPDATE workspace_invitations AS wi
+
+            SET status = 'declined'
+
+            FROM users AS invited_user
+
+            WHERE wi.id = $1
+              AND invited_user.id = $2
+              AND LOWER(invited_user.email) = wi.invited_email
+              AND wi.status = 'pending'
+
+            RETURNING wi.id, wi.status
+            `,
+            [invitationId, userId]
+        );
+
+        // Чужое, уже обработанное или несуществующее
+        // приглашение отклонять нельзя.
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                error: 'Invitation not found'
+            });
+        }
+
+        return res.json({
+            message: 'Invitation declined',
+            invitation_id: String(result.rows[0].id),
+            status: result.rows[0].status
+        });
+
+    } catch (error) {
+
+        console.error('Decline invitation error:', error);
+
+        return res.status(500).json({
+            error: 'Failed to decline invitation'
+        });
+    }
+});
+
+
 module.exports = router;

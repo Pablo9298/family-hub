@@ -1185,10 +1185,11 @@ h2 {
     font: inherit;
 }
 
-/* Сохраняем внешний вид существующего аватара. */
+/* Аватар с первой буквой имени */
 .account-avatar-button .account-avatar {
     display: inline-flex;
-    pointer-events: none;
+    align-items: center;
+    justify-content: center;
 }
 
 /* Подсветка для пользователей клавиатуры. */
@@ -1394,4 +1395,201 @@ h2 {
     .account-menu-chevron {
         display: none;
     }
+}
+
+
+/* =====================================================
+   FAMILY HUB — УЧАСТНИКИ ПРОСТРАНСТВА
+   ===================================================== */
+
+/* Скрываем надпись визуально, но оставляем
+   её доступной для экранного чтения. */
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Компактный список участников */
+.workspace-members-section {
+    margin: 14px 0 20px;
+}
+
+#workspace-members-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* Отдельная строка участника */
+.workspace-member-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+}
+
+/* Имя и email */
+.workspace-member-details {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+    flex: 1;
+}
+
+.workspace-member-details strong {
+    font-size: 14px;
+    overflow-wrap: anywhere;
+}
+
+.workspace-member-details p {
+    margin: 0;
+    font-size: 12px;
+    overflow-wrap: anywhere;
+}
+
+/* Роль пользователя */
+.workspace-member-role {
+    flex-shrink: 0;
+    font-size: 11px;
+    padding: 5px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+}
+
+/* Приглашение в одну строку */
+.workspace-invite-row {
+    display: flex;
+    align-items: stretch;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+/* Поле email в стиле остальных полей Family Hub */
+.workspace-invite-row input {
+    flex: 1;
+    min-width: 0;
+    width: 100%;
+    margin: 0;
+
+    padding: 13px 16px;
+
+    /* Тёмное поле вместо стандартного серого */
+    background: var(--surface, #101526);
+    color: var(--text, #f5f5f7);
+
+    border: 1px solid var(--border);
+    border-radius: 12px;
+
+    font: inherit;
+    font-size: 14px;
+
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+/* Текст подсказки */
+.workspace-invite-row input::placeholder {
+    color: var(--muted, #9299ad);
+    opacity: 1;
+}
+
+/* Подсветка при вводе */
+.workspace-invite-row input:focus {
+    border-color: #9475f5;
+    box-shadow: 0 0 0 3px rgba(148, 117, 245, 0.15);
+}
+
+.workspace-invite-row button {
+    flex-shrink: 0;
+    min-width: 46px;
+    padding: 0 14px;
+    font-size: 19px;
+}
+
+/* Сообщение после отправки */
+#workspace-invite-status:empty {
+    display: none;
+}
+
+#workspace-invite-status:not(:empty) {
+    margin: 10px 0 0;
+    font-size: 13px;
+}
+
+/* Круглый аватар участника */
+.workspace-member-avatar {
+    width: 42px;
+    height: 42px;
+    flex-shrink: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 50%;
+
+    background: rgba(148, 117, 245, 0.16);
+    border: 1px solid rgba(148, 117, 245, 0.35);
+
+    color: #a78bfa;
+    font-size: 17px;
+    font-weight: 700;
+}
+
+/* Корона владельца */
+.workspace-member-owner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    color: #a78bfa;
+    border: none;
+    padding: 5px;
+}
+
+/* =====================================================
+   УДАЛЕНИЕ УЧАСТНИКА
+   ===================================================== */
+
+.workspace-member-remove {
+    width: 38px;
+    height: 38px;
+    min-width: 38px;
+    padding: 0;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    flex-shrink: 0;
+    border-radius: 11px;
+
+    color: var(--muted, #9299ad);
+    transition:
+        color 0.2s,
+        background 0.2s,
+        border-color 0.2s;
+}
+
+/* Красная подсветка при наведении */
+.workspace-member-remove:hover {
+    color: #fb7185;
+    background: rgba(251, 113, 133, 0.1);
+    border-color: rgba(251, 113, 133, 0.35);
+}
+
+.workspace-member-remove:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
