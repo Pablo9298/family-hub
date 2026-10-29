@@ -87,6 +87,9 @@ async function addTransaction() {
 
     try {
         await createTransaction(data); // api.js отправит POST и дождётся ответа.
+        // Операция успешно сохранена в PostgreSQL.
+        // Закрываем модальное окно.
+        $('add-transaction-dialog').close();
         $('desc').value = '';
         $('amount').value = '';
         $('category').value = '';
@@ -183,6 +186,22 @@ async function saveEdit() {
 
 // ========= 4. НАСТРАИВАЕМ ОБРАБОТЧИКИ СОБЫТИЙ =========
 function initTransactionEvents() {
+    // =====================================================
+    // МОДАЛЬНОЕ ОКНО ДОБАВЛЕНИЯ ОПЕРАЦИИ
+    // =====================================================
+
+    const addDialog = $('add-transaction-dialog');
+
+    // Открываем окно по кнопке на Dashboard.
+    $('open-add-transaction').addEventListener('click', () => {
+        addDialog.showModal();
+    });
+
+    // Закрываем окно по крестику.
+    $('close-add-transaction').addEventListener('click', () => {
+        addDialog.close();
+    });
+
     // submit — отправка формы по кнопке или Enter.
     // preventDefault() отменяет стандартную перезагрузку страницы.
     $('add-form').addEventListener('submit', (event) => {

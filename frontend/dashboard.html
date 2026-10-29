@@ -168,79 +168,22 @@
                  5. CONTENT GRID — форма добавления и история операций
                  ===================================================== -->
             <div class="content-grid">
-                <!-- =================================================
-                     5.1. ADD FORM — добавление дохода или расхода
 
-                     JS-модули слушает submit формы #add-form,
-                     читает выбранный тип, дату, описание, сумму и категорию,
-                     затем отправляет POST /transactions на backend.
-                     ================================================= -->
+                <!-- Компактная карточка добавления операции -->
                 <section id="form-container" class="panel">
+
                     <div class="panel-heading">
                         <div>
                             <p class="eyebrow">НОВАЯ ЗАПИСЬ</p>
                             <h2>Добавить операцию</h2>
                         </div>
-                        <span class="heading-icon" aria-hidden="true">
-                            <svg
-                                width="24"
-                                height="24"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="2"
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                            >
-                                <path d="M12 5v14"/>
-                                <path d="M5 12h14"/>
-                            </svg>
-                        </span>
                     </div>
-                    <p class="muted panel-intro">
-                        Выбери тип операции и введи положительную сумму.
-                    </p>
-                    <form id="add-form">
-                        <div class="field">
-                            <span class="field-label">Тип операции</span>
 
-                            <!-- У radio одинаковый name="type":
-                                 одновременно можно выбрать только один тип.
-                                 checked означает «Расход» по умолчанию. -->
-                            <div class="radio-group" id="type-group">
-                                <label class="radio-card">
-                                    <input type="radio" name="type" value="expense" checked>
-                                    <span>Расход</span>
-                                </label>
+                    <!-- Открываем модальное окно -->
+                    <button id="open-add-transaction" type="button" class="btn btn-primary btn-full">
+                        + Добавить операцию
+                    </button>
 
-                                <label class="radio-card">
-                                    <input type="radio" name="type" value="income">
-                                    <span>Доход</span>
-                                </label>
-                            </div>
-                        </div>
-
-                        <!-- Поля формы. label for связан с input id.
-                             required = обязательное поле; min и step
-                             помогают проверить положительную сумму с копейками.
-                             Основная проверка данных также выполняется на backend. -->
-                        <div class="field"><label for="date">Дата</label><input type="date" id="date" required></div>
-                        <div class="field"><label for="desc">Описание</label><input type="text" id="desc"
-                                placeholder="Например, продукты" required></div>
-                        <div class="field"><label for="amount">Сумма (€)</label><input type="number" id="amount"
-                                min="0.01" step="0.01" placeholder="Например, 42.50" required></div>
-                        <!-- list связывает текстовый input со списком подсказок datalist.
-                             Пользователь НЕ обязан выбирать готовую категорию:
-                             можно написать новую, и backend создаст её при сохранении.
-                             Список <option> добавит js/categories.js. -->
-                        <div class="field">
-                            <label for="category">Категория</label>
-                            <input type="text" id="category" list="category-suggestions"
-                                placeholder="Например, продукты" autocomplete="off" required>
-                            <datalist id="category-suggestions"></datalist>
-                        </div>
-                        <button type="submit" class="btn btn-primary btn-full">＋ Добавить операцию</button>
-                    </form>
                 </section>
 
                 <!-- =================================================
@@ -349,6 +292,80 @@
              ========================================================= -->
         <footer class="app-footer">Family Hub <span>·</span> Сделано для удобного семейного бюджета</footer>
     </div>
+
+
+    <!-- =====================================================
+     МОДАЛЬНОЕ ОКНО ДОБАВЛЕНИЯ ОПЕРАЦИИ
+     ===================================================== -->
+
+    <dialog id="add-transaction-dialog" class="modal small-modal">
+
+        <div class="modal-heading">
+            <div>
+                <p class="eyebrow">НОВАЯ ЗАПИСЬ</p>
+                <h2>Добавить операцию</h2>
+            </div>
+
+            <button id="close-add-transaction" type="button" class="icon-button" aria-label="Закрыть окно">
+                ×
+            </button>
+        </div>
+
+        <!-- Существующая форма с прежними ID -->
+        <form id="add-form">
+
+            <!-- Тип операции -->
+            <div class="field">
+                <span class="field-label">Тип операции</span>
+
+                <div class="radio-group" id="type-group">
+                    <label class="radio-card">
+                        <input type="radio" name="type" value="expense" checked>
+                        <span>Расход</span>
+                    </label>
+
+                    <label class="radio-card">
+                        <input type="radio" name="type" value="income">
+                        <span>Доход</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Дата -->
+            <div class="field">
+                <label for="date">Дата</label>
+                <input type="date" id="date" required>
+            </div>
+
+            <!-- Описание -->
+            <div class="field">
+                <label for="desc">Описание</label>
+                <input type="text" id="desc" placeholder="Например, продукты" required>
+            </div>
+
+            <!-- Сумма -->
+            <div class="field">
+                <label for="amount">Сумма (€)</label>
+                <input type="number" id="amount" min="0.01" step="0.01" placeholder="Например, 42.50" required>
+            </div>
+
+            <!-- Категория -->
+            <div class="field">
+                <label for="category">Категория</label>
+                <input type="text" id="category" list="category-suggestions" placeholder="Например, продукты"
+                    autocomplete="off" required>
+                <datalist id="category-suggestions"></datalist>
+            </div>
+
+            <!-- Сохранение операции -->
+            <button type="submit" class="btn btn-primary btn-full">
+                Добавить операцию
+            </button>
+
+        </form>
+
+    </dialog>
+
 
     <!-- =============================================================
          7. EDIT DIALOG — модальное окно редактирования
