@@ -14,6 +14,7 @@
 import { getTransactions, getCurrentWorkspace } from './api.js';
 import { $, money, escapeHTML } from './ui.js';
 import { getSelectedDateRange, getSelectedType, filterByPeriod } from './filters.js';
+import { calculateExpenseCategories, renderExpenseChart } from './analytics.js';
 
 // Это локальная переменная модуля, а не глобальная переменная окна.
 // Она сохраняется между вызовами функций, пока открыта страница.
@@ -159,6 +160,11 @@ export function renderTransactions() {
 
     // Не показываем вводящий в заблуждение итог для обратного интервала.
     if (from && to && from > to) {
+        // Убираем старую диаграмму при неправильном диапазоне дат.
+        renderExpenseChart({
+            totalExpenses: 0,
+            categories: []
+        });
         $('summary-income').textContent = '—';
         $('summary-expenses').textContent = '—';
         $('summary-balance').textContent = '—';
@@ -174,7 +180,14 @@ export function renderTransactions() {
         selectedType === 'all' || transaction.type === selectedType
     );
 
+    // Обновляем верхние карточки с балансом, доходами и расходами.
     renderSummary(periodTransactions);
+
+    // Рассчитываем расходы по категориям за выбранный период.
+    const expenseAnalytics = calculateExpenseCategories(periodTransactions);
+
+    // Рисуем диаграмму на Dashboard.
+    renderExpenseChart(expenseAnalytics);
 
     // Объект groups: ключ = '2026-10', значение = массив операций месяца.
     const groups = {};

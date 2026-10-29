@@ -1593,3 +1593,97 @@ h2 {
     opacity: 0.5;
     cursor: not-allowed;
 }
+
+
+/* =====================================================
+   АНАЛИТИКА РАСХОДОВ ПО КАТЕГОРИЯМ
+   ===================================================== */
+
+/* Карточка аналитики */
+#analytics-container {
+    margin-bottom: 24px;
+}
+
+/* Диаграмма */
+#expense-chart {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 240px;
+}
+
+#expense-chart svg {
+    display: block;
+    width: 220px;
+    max-width: 100%;
+    height: auto;
+}
+
+/* Список категорий */
+#expense-legend {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* Одна категория */
+.expense-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    background: rgba(255, 255, 255, 0.035);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
+}
+
+/* Цветной маркер категории */
+.expense-legend-color {
+    width: 12px;
+    height: 12px;
+    min-width: 12px;
+    border-radius: 50%;
+}
+
+/* Название категории */
+.expense-legend-name {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+/* Сумма и процент */
+.expense-legend-amount {
+    white-space: nowrap;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+/* На широком экране диаграмма и список рядом */
+@media (min-width: 760px) {
+    #analytics-container {
+        display: grid;
+        grid-template-columns: minmax(240px, 0.8fr) minmax(0, 1.2fr);
+        column-gap: 36px;
+        align-items: center;
+    }
+
+    #analytics-container .panel-heading {
+        grid-column: 1 / -1;
+    }
+}
+
+/* На узком экране элементы друг под другом */
+@media (max-width: 759px) {
+    #expense-legend {
+        margin-top: 12px;
+    }
+
+    .expense-legend-item {
+        flex-wrap: wrap;
+    }
+
+    .expense-legend-amount {
+        margin-left: auto;
+    }
+}
