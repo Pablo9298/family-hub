@@ -209,3 +209,226 @@ export function renderExpenseChart(analytics) {
     });
 }
 
+
+/*
+ * =====================================================
+ * СРАВНЕНИЕ ДОХОДОВ И РАСХОДОВ ПО МЕСЯЦАМ
+ * =====================================================
+ *
+ * Берём все загруженные транзакции выбранного
+ * финансового пространства.
+ *
+ * Результат:
+ * [
+ *   { month: '2026-09', income: 1500, expenses: 800 },
+ *   { month: '2026-10', income: 1700, expenses: 950 }
+ * ]
+ */
+
+export function calculateMonthlyStatistics(transactions, monthCount = 6) {
+
+    const now = new Date();
+
+    // Храним результаты по ключу YYYY-MM.
+    const months = new Map();
+
+    // Создаём последние 6 месяцев, включая текущий.
+    // Даже если операций не было, месяц останется в графике.
+    for (let i = monthCount - 1; i >= 0; i--) {
+
+        const date = new Date(
+            now.getFullYear(),
+            now.getMonth() - i,
+            1
+        );
+
+        const month = [
+            date.getFullYear(),
+            String(date.getMonth() + 1).padStart(2, '0')
+        ].join('-');
+
+        months.set(month, {
+            month,
+            income: 0,
+            expenses: 0
+        });
+    }
+
+    // Распределяем операции по месяцам.
+    for (const transaction of transactions) {
+
+        const month = String(transaction.date).slice(0, 7);
+
+        // Старые и будущие месяцы за пределами графика пропускаем.
+        if (!months.has(month)) continue;
+
+        const amount = Number(transaction.amount);
+
+        if (!Number.isFinite(amount) || amount <= 0) continue;
+
+        const stats = months.get(month);
+
+        if (transaction.type === 'income') {
+            stats.income += amount;
+        }
+
+        if (transaction.type === 'expense') {
+            stats.expenses += amount;
+        }
+    }
+
+    // Возвращаем месяцы по порядку: от старого к новому.
+    return [...months.values()];
+}
+
+
+/*
+ * =====================================================
+ * ГРАФИК ДОХОДОВ И РАСХОДОВ ПО МЕСЯЦАМ
+ * =====================================================
+ *
+ * Используем уже рассчитанную статистику:
+ * [
+ *   { month: '2026-09', income: 1200, expenses: 800 },
+ *   { month: '2026-10', income: 1500, expenses: 900 }
+ * ]
+ *
+ * Строим столбчатый график без сторонних библиотек.
+ * Высота столбцов зависит от максимальной суммы.
+ */
+
+export function renderMonthlyChart(statistics) {
+
+    const container = document.getElementById('monthly-chart');
+    if (!container) return;
+
+    // Удаляем предыдущий график перед перерисовкой.
+    container.replaceChildren();
+
+    // Легенда графика.
+    const legend = document.createElement('div');
+    legend.className = 'monthly-chart-legend';
+
+    for (const [type, label] of [
+        ['income', 'Доходы'],
+        ['expenses', 'Расходы']
+    ]) {
+        const item = document.createElement('span');
+        item.className = `monthly-chart-legend-item ${type}`;
+        item.textContent = label;
+        legend.appendChild(item);
+    }
+
+    container.appendChild(legend);
+
+    // Вычисляем максимум для общей шкалы.
+    const maxAmount = Math.max(
+        0,
+        ...statistics.flatMap(month => [
+            month.income,
+            month.expenses
+        ])
+    );
+
+    // Если операций нет, показываем пустое состояние.
+    if (maxAmount === 0) {
+        const message = document.createElement('p');
+        message.className = 'muted';
+        message.textContent = 'Нет доходов и расходов за последние 6 месяцев.';
+        container.appendChild(message);
+        return;
+    }
+
+    // Область с шестью группами столбцов.
+    const chart = document.createElement('div');
+    chart.className = 'monthly-chart-bars';
+
+    const formatMoney = amount =>
+        new Intl.NumberFormat('ru-RU', {
+            style: 'currency',
+            currency: 'EUR'
+        }).format(amount);
+
+    const formatMonth = monthKey => {
+        const [year, month] = monthKey.split('-').map(Number);
+
+        return new Intl.DateTimeFormat('ru-RU', {
+            month: 'short'
+        }).format(new Date(year, month - 1, 1));
+    };
+
+    for (const month of statistics) {
+
+        const group = document.createElement('div');
+        group.className = 'monthly-chart-group';
+
+        const bars = document.createElement('div');
+        bars.className = 'monthly-chart-pair';
+
+        for (const type of ['income', 'expenses']) {
+
+            const amount = month[type];
+
+            const bar = document.createElement('div');
+            bar.className = `monthly-chart-bar ${type}`;
+
+            // Для маленьких положительных сумм оставляем
+            // минимум 3% высоты, чтобы столбец был виден.
+            // Точную сумму показываем в подсказке.
+            const percent = amount > 0
+                ? Math.max(3, (amount / maxAmount) * 100)
+                : 0;
+
+            bar.style.height = `${percent}%`;
+            bar.style.setProperty('--bar-height', `${percent}%`);
+
+            bar.title = `${type === 'income' ? 'Доходы' : 'Расходы'}: ${formatMoney(amount)}`;
+
+            bar.setAttribute(
+                'aria-label',
+                bar.title
+            );
+
+            // Обёртка для столбца и подписи суммы.
+            const barWrapper = document.createElement('div');
+            barWrapper.className = 'monthly-chart-bar-wrapper';
+            barWrapper.style.setProperty('--bar-height', `${percent}%`);
+
+            // =====================================================
+            // КОМПАКТНАЯ ПОДПИСЬ НАД СТОЛБЦОМ
+            // =====================================================
+
+            if (amount > 0) {
+
+                const amountLabel = document.createElement('span');
+                amountLabel.className = 'monthly-chart-value';
+
+                // Компактная сумма без копеек.
+                // Например: 2030 € вместо 2 030,00 €.
+                const compactAmount = new Intl.NumberFormat('ru-RU', {
+                    maximumFractionDigits: 0
+                }).format(amount);
+
+                amountLabel.textContent = `${compactAmount} €`;
+
+                // Точная сумма остаётся доступна в подсказке.
+                amountLabel.title = formatMoney(amount);
+
+                barWrapper.appendChild(amountLabel);
+            }
+
+            barWrapper.appendChild(bar);
+            bars.appendChild(barWrapper);
+        }
+
+        const monthLabel = document.createElement('span');
+        monthLabel.className = 'monthly-chart-month';
+        monthLabel.textContent = formatMonth(month.month);
+
+        // Общая группа: два столбца + название месяца.
+        group.append(bars, monthLabel);
+        chart.appendChild(group);
+    }
+
+    container.appendChild(chart);
+}

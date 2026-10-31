@@ -1687,3 +1687,180 @@ h2 {
         margin-left: auto;
     }
 }
+
+
+/* =====================================================
+   FAMILY HUB — ГРАФИК ДОХОДОВ И РАСХОДОВ ПО МЕСЯЦАМ
+   ===================================================== */
+
+#monthly-analytics-container {
+    margin-bottom: 24px;
+}
+
+#monthly-chart {
+    margin-top: 24px;
+}
+
+/* Легенда над графиком */
+.monthly-chart-legend {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    margin-bottom: 28px;
+}
+
+.monthly-chart-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    font-weight: 600;
+}
+
+.monthly-chart-legend-item::before {
+    content: "";
+    width: 12px;
+    height: 12px;
+    border-radius: 4px;
+    background: #34d399;
+}
+
+.monthly-chart-legend-item.expenses::before {
+    background: #818cf8;
+}
+
+/* Область графика */
+.monthly-chart-bars {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 20px;
+    align-items: end;
+    min-height: 310px;
+    padding: 20px 12px 0;
+    border-bottom: 1px solid var(--border, rgba(128,128,128,0.2));
+}
+
+/* Группа одного месяца */
+.monthly-chart-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 0;
+}
+
+/* Пара столбцов одного месяца */
+.monthly-chart-pair {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    height: 250px;
+}
+
+
+/* Обёртка занимает всю высоту области графика.
+   Это позволяет столбцу правильно рассчитывать
+   свою высоту в процентах. */
+.monthly-chart-bar-wrapper {
+    position: relative;
+
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+
+    width: 38px;
+    max-width: 40%;
+    height: 100%;
+
+    min-width: 0;
+}
+
+
+/* Компактные суммы над столбцами */
+.monthly-chart-value {
+    position: absolute;
+    bottom: calc(var(--bar-height, 0%) + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+
+    font-size: 11px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+
+    color: var(--text, #e5e7eb);
+    pointer-events: auto;
+}
+
+
+/* Теперь ширина столбца определяется обёрткой. */
+.monthly-chart-bar-wrapper .monthly-chart-bar {
+    width: 100%;
+    max-width: none;
+}
+
+
+/* Отдельный столбец */
+.monthly-chart-bar {
+    width: 38px;
+    max-width: 40%;
+    min-height: 0;
+    border-radius: 8px 8px 0 0;
+    transition: height 0.3s ease;
+}
+
+/* Доходы */
+.monthly-chart-bar.income {
+    background: #34d399;
+}
+
+/* Расходы */
+.monthly-chart-bar.expenses {
+    background: #818cf8;
+}
+
+/* Название месяца */
+.monthly-chart-month {
+    display: block;
+    padding: 14px 0;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: center;
+    color: var(--text-muted, #9ca3af);
+}
+
+/* Телефоны */
+@media (max-width: 650px) {
+    .monthly-chart-bars {
+        gap: 6px;
+        padding-inline: 0;
+    }
+
+    .monthly-chart-pair {
+        gap: 4px;
+        height: 200px;
+    }
+
+    .monthly-chart-bar {
+        width: 20px;
+        max-width: 44%;
+        border-radius: 4px 4px 0 0;
+    }
+
+    .monthly-chart-month {
+        font-size: 11px;
+    }
+
+    .monthly-chart-legend {
+        gap: 16px;
+        flex-wrap: wrap;
+    }
+}
+
+/* На небольших экранах прячем длинные подписи.
+   Точные суммы остаются в подсказках столбцов. */
+@media (max-width: 900px) {
+    .monthly-chart-value {
+        display: none;
+    }
+}
