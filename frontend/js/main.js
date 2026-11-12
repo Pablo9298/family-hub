@@ -43,11 +43,15 @@ import { initInvitations } from './invitations.js';
 
 // Управление участниками и отправка приглашений через UI.
 import { initWorkspaceMembers } from './workspaceMembers.js';
+import { chooseWorkspace, rememberWorkspace } from './workspaceSelection.js';
 
 // ID транзакций, над которыми сейчас открыто модальное окно.
 // null = редактирование/удаление сейчас не выбрано.
 let editingTransactionId = null;
 let deletingTransactionId = null;
+
+// ID пользователя нужен лишь для запоминания выбора workspace в этой вкладке.
+let currentUserId = null;
 
 // Проверяем значения обеих форм одинаковым способом.
 // Эти проверки помогают UX, но backend обязан валидировать всё повторно.
@@ -87,6 +91,9 @@ async function addTransaction() {
 
     try {
         await createTransaction(data); // api.js отправит POST и дождётся ответа.
+        // Операция успешно сохранена в PostgreSQL.
+        // Закрываем модальное окно.
+        $('add-transaction-dialog').close();
         $('desc').value = '';
         $('amount').value = '';
         $('category').value = '';
@@ -183,6 +190,22 @@ async function saveEdit() {
 
 // ========= 4. НАСТРАИВАЕМ ОБРАБОТЧИКИ СОБЫТИЙ =========
 function initTransactionEvents() {
+    // =====================================================
+    // МОДАЛЬНОЕ ОКНО ДОБАВЛЕНИЯ ОПЕРАЦИИ
+    // =====================================================
+
+    const addDialog = $('add-transaction-dialog');
+
+    // Открываем окно по кнопке на Dashboard.
+    $('open-add-transaction').addEventListener('click', () => {
+        addDialog.showModal();
+    });
+
+    // Закрываем окно по крестику.
+    $('close-add-transaction').addEventListener('click', () => {
+        addDialog.close();
+    });
+
     // submit — отправка формы по кнопке или Enter.
     // preventDefault() отменяет стандартную перезагрузку страницы.
     $('add-form').addEventListener('submit', (event) => {
@@ -433,6 +456,7 @@ async function switchWorkspace(workspaceId) {
 
         // Устанавливаем новое пространство в api.js.
         setCurrentWorkspace(workspaceId);
+        rememberWorkspace(currentUserId, workspaceId);
 
         // Очищаем данные предыдущего пространства.
         clearTransactions();
@@ -511,6 +535,8 @@ async function initApp() {
             window.location.replace('./index.html');
             return;
         }
+
+        currentUserId = user.id;
 
         // Показываем имя Google-аккаунта.
         // Если имя отсутствует, используем email.
@@ -635,7 +661,7 @@ async function initApp() {
         // 3. ВЫБИРАЕМ ПРОСТРАНСТВО
         // =================================================
 
-        // Пока выбираем первое доступное пространство.
+        // Восстанавливаем ранее выбранное пространство из этой вкладки.
         //
         // ВАЖНО:
         // Это больше НЕ фиксированный ID = 1.
@@ -644,10 +670,11 @@ async function initApp() {
         // может иметь разные ID.
         //
         // Позже добавим переключатель пространств.
-        const workspace = workspaces[0];
+        const workspace = chooseWorkspace(currentUserId, workspaces);
 
         // Передаём выбранный ID в api.js.
         setCurrentWorkspace(workspace.id);
+        rememberWorkspace(currentUserId, workspace.id);
         // =================================================
         // ЗАПОЛНЯЕМ ПЕРЕКЛЮЧАТЕЛЬ ПРОСТРАНСТВ
         // =================================================

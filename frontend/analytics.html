@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<!-- ============================================================
+     FAMILY HUB — АНАЛИТИКА (analytics.html)
+     Отдельная страница графиков. Её запускает analyticsPage.js,
+     а вычисления/рисование диаграмм находятся в analytics.js.
+     Данные всегда получаем с сервера после проверки Google-сессии.
+     ============================================================ -->
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#101526">
+    <title>Аналитика — Family Hub</title>
+    <script>
+        // Применяем тему до отрисовки, чтобы не мигал светлый фон.
+        const savedTheme = localStorage.getItem('familyhub-theme');
+        document.documentElement.dataset.theme = savedTheme ||
+            (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    </script>
+    <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+    <div class="app-shell analytics-page">
+        <header class="app-header">
+            <a class="brand" href="./dashboard.html" aria-label="Family Hub — на главную">
+                <span class="brand-icon">◈</span>
+                <span>Family<span class="brand-accent">Hub</span><small>Семейные финансы</small></span>
+            </a>
+            <div class="header-actions">
+                <span class="muted analytics-user-name" id="analytics-user-name"></span>
+                <button id="theme-toggle" class="icon-button" type="button" aria-label="Переключить тему">☾</button>
+                <button id="logout-button" class="btn btn-secondary" type="button" aria-label="Выйти из аккаунта" title="Выйти">Выйти</button>
+            </div>
+        </header>
+
+        <main id="top">
+            <section class="page-heading">
+                <div>
+                    <p class="eyebrow">ФИНАНСОВЫЙ ОБЗОР</p>
+                    <h1>Аналитика</h1>
+                    <p class="muted">Расходы по категориям и динамика семейного бюджета.</p>
+                </div>
+            </section>
+
+            <!-- Доступные пространства берём исключительно из GET /workspaces.
+                 Нельзя доверять ID только из sessionStorage. -->
+            <div class="workspace-selector">
+                <label for="analytics-workspace-select">Финансовое пространство</label>
+                <div class="workspace-controls">
+                    <select id="analytics-workspace-select" disabled>
+                        <option value="">Загрузка пространств...</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Фильтр периода относится только к круговой диаграмме.
+                 График по месяцам всегда отображает последние 6 месяцев. -->
+            <section class="panel analytics-controls" aria-label="Настройки аналитики">
+                <div class="field">
+                    <label for="analytics-period">Период расходов по категориям</label>
+                    <select id="analytics-period">
+                        <option value="current">Текущий месяц</option>
+                        <option value="previous">Прошлый месяц</option>
+                        <option value="all">За всё время</option>
+                        <option value="custom">Свой период</option>
+                    </select>
+                </div>
+                <div id="analytics-custom-range" class="analytics-custom-range" hidden>
+                    <div class="field"><label for="analytics-date-from">С даты</label><input id="analytics-date-from" type="date"></div>
+                    <div class="field"><label for="analytics-date-to">По дату</label><input id="analytics-date-to" type="date"></div>
+                </div>
+                <div class="field">
+                    <label for="analytics-view">Какие графики показывать</label>
+                    <select id="analytics-view">
+                        <option value="all">Все графики</option>
+                        <option value="categories">Расходы по категориям</option>
+                        <option value="monthly">Доходы и расходы по месяцам</option>
+                    </select>
+                </div>
+            </section>
+
+            <p id="analytics-status" class="muted" role="status" aria-live="polite">Загрузка данных...</p>
+
+            <section id="analytics-container" class="panel">
+                <div class="panel-heading"><div>
+                    <p class="eyebrow">АНАЛИТИКА</p>
+                    <h2>Расходы по категориям</h2>
+                </div></div>
+                <div id="expense-chart"></div>
+                <div id="expense-legend"></div>
+            </section>
+
+            <section id="monthly-analytics-container" class="panel">
+                <div class="panel-heading"><div>
+                    <p class="eyebrow">ДИНАМИКА ФИНАНСОВ</p>
+                    <h2>Доходы и расходы по месяцам</h2>
+                </div></div>
+                <p class="muted">Последние 6 календарных месяцев, включая текущий.</p>
+                <div id="monthly-chart"></div>
+            </section>
+        </main>
+
+        <!-- Навигация закрепляется на узких экранах стилями CSS. -->
+        <nav class="bottom-nav" aria-label="Разделы Family Hub">
+            <a class="bottom-nav-link" href="./dashboard.html"><span>Главная</span></a>
+            <a class="bottom-nav-link active" href="./analytics.html" aria-current="page"><span>Аналитика</span></a>
+        </nav>
+        <footer class="app-footer">Family Hub <span>·</span> Аналитика семейных финансов</footer>
+    </div>
+    <div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="true"></div>
+    <script type="module" src="./js/analyticsPage.js"></script>
+</body>
+</html>

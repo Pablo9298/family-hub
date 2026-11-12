@@ -174,7 +174,11 @@ export function renderTransactions() {
         selectedType === 'all' || transaction.type === selectedType
     );
 
+    // Обновляем верхние карточки с балансом, доходами и расходами.
     renderSummary(periodTransactions);
+
+    // На Dashboard отображается только финансовая сводка и история.
+    // Графики вынесены в analytics.html / analyticsPage.js.
 
     // Объект groups: ключ = '2026-10', значение = массив операций месяца.
     const groups = {};
