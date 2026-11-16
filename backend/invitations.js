@@ -18,6 +18,9 @@
 const express = require('express');
 const pool = require('./db');
 const requireAuth = require('./middleware/requireAuth');
+// Проверяем, что изменяющий данные запрос
+// пришёл с разрешённого frontend-адреса.
+const requireTrustedOrigin = require('./middleware/requireTrustedOrigin');
 
 const router = express.Router();
 
@@ -111,27 +114,11 @@ router.get('/', async (req, res) => {
  *   выполняются одной SQL-транзакцией.
  */
 
-router.post('/:id/accept', async (req, res) => {
+// Перед принятием приглашения проверяем Origin.
+// DEV:  http://localhost:5500
+// PROD: https://pablo9298.tail62ffac.ts.net
+router.post('/:id/accept', requireTrustedOrigin, async (req, res) => {
 
-    // ================================================
-    // ПРОВЕРКА ИСТОЧНИКА ЗАПРОСА
-    // ================================================
-    //
-    // Origin показывает, с какого сайта браузер
-    // отправил запрос.
-    //
-    // В режиме разработки наш frontend работает
-    // по адресу http://localhost:5500.
-    //
-    // Другим сайтам запрещаем принимать приглашения.
-
-    const origin = req.get('Origin');
-
-    if (origin !== 'http://localhost:5500') {
-        return res.status(403).json({
-            error: 'Forbidden origin'
-        });
-    }
 
     // ID приглашения приходит из URL.
     const invitationId = req.params.id;
