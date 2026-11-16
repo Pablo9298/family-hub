@@ -221,9 +221,31 @@ router.get('/google/callback', async (req, res) => {
                 // HTTP 302 сообщает браузеру:
                 // "Открой указанный адрес".
 
-                return res.redirect(
-                    'http://localhost:5500/frontend/dashboard.html'
-                );
+
+                /*
+                * =====================================================
+                * ПЕРЕХОД ПОСЛЕ УСПЕШНОГО ВХОДА
+                * =====================================================
+                *
+                * DEVELOPMENT:
+                * Пользователь возвращается на локальный frontend
+                * VS Code Live Server (порт 5500).
+                *
+                * PRODUCTION:
+                * Express самостоятельно отдаёт frontend.
+                * Поэтому используем относительный адрес.
+                *
+                * Это позволяет открывать Family Hub с разных
+                * компьютеров и телефонов через Tailscale.
+                */
+
+                const dashboardUrl =
+                    process.env.NODE_ENV === 'development'
+                        ? 'http://localhost:5500/frontend/dashboard.html'
+                        : '/dashboard.html';
+
+                return res.redirect(dashboardUrl);
+
             });
 
         });

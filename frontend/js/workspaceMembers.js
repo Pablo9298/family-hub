@@ -18,7 +18,7 @@ import {
     getWorkspaces
 } from './api.js';
 
-const API = 'http://localhost:3001';
+import { API_BASE as API } from './config.js';
 
 export function initWorkspaceMembers() {
 

@@ -21,8 +21,7 @@
  * - Не подключаем этот файл отдельным тегом <script>.
  */
 
-// Адрес нашего backend в режиме разработки.
-const API = 'http://localhost:3001';
+import { API_BASE as API } from './config.js';
 
 
 /*
