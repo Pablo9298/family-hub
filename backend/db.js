@@ -4,16 +4,18 @@
  * FAMILY HUB — POSTGRESQL CONNECTION
  * =====================================================
  *
- * Здесь настраиваем подключение к базе данных.
+ * Настройка подключения к PostgreSQL.
  *
- * У нас два окружения:
+ * У нас два независимых окружения:
  *
  * development -> .env.development -> family_hub_dev
  * production  -> .env             -> family_hub
  *
  * ВАЖНО:
- * Если NODE_ENV не указан, подключение запрещено.
- * Это защищает основную базу от случайного запуска.
+ * - NODE_ENV должен быть указан явно.
+ * - Каждый режим может работать только со своей базой.
+ * - Настройки берём из соответствующего .env файла.
+ * - После подключения проверяем имя реальной базы.
  * =====================================================
  */
 
@@ -26,14 +28,8 @@ const { Pool } = require('pg');
 // 1. ОПРЕДЕЛЯЕМ РЕЖИМ РАБОТЫ
 // =====================================================
 
-// NODE_ENV передаём при запуске Node.js.
-//
-// Например:
-// NODE_ENV=development node server.js
-
 const environment = process.env.NODE_ENV;
 
-// Разрешаем только явно указанные режимы.
 if (!['development', 'production'].includes(environment)) {
     throw new Error(
         'NODE_ENV must be development or production'
@@ -42,59 +38,85 @@ if (!['development', 'production'].includes(environment)) {
 
 
 // =====================================================
-// 2. ВЫБИРАЕМ ФАЙЛ НАСТРОЕК
+// 2. ВЫБИРАЕМ ФАЙЛ И ОЖИДАЕМУЮ БАЗУ
 // =====================================================
 
-// Для разработки используем тестовую базу.
-// Для production — основную.
+const isDevelopment = environment === 'development';
 
-const envFile = environment === 'development'
+const envFile = isDevelopment
     ? '.env.development'
     : '.env';
 
-// Загружаем переменные окружения из корня проекта.
-dotenv.config({
-    path: path.join(__dirname, '..', envFile)
+const expectedDatabase = isDevelopment
+    ? 'family_hub_dev'
+    : 'family_hub';
+
+
+// =====================================================
+// 3. ЗАГРУЖАЕМ НАСТРОЙКИ
+// =====================================================
+
+// Используем абсолютный путь относительно backend/db.js,
+// поэтому запуск не зависит от текущей папки терминала.
+//
+// override: true означает, что значения из выбранного
+// файла имеют приоритет над уже установленными
+// переменными окружения с такими же именами.
+
+const envResult = dotenv.config({
+    path: path.join(__dirname, '..', envFile),
+    override: true
 });
 
-
-// =====================================================
-// 3. ПРОВЕРЯЕМ КОНФИГУРАЦИЮ
-// =====================================================
-
-// Название базы обязательно должно присутствовать.
-if (!process.env.DB_NAME) {
-    throw new Error('DB_NAME is not configured');
-}
-
-// Защита разработки.
-//
-// Если случайно указать основную базу в
-// .env.development, приложение остановится.
-if (
-    environment === 'development' &&
-    process.env.DB_NAME !== 'family_hub_dev'
-) {
+if (envResult.error) {
     throw new Error(
-        'Development must use family_hub_dev'
-    );
-}
-
-// Защита production.
-//
-// Основной режим не должен использовать тестовую базу.
-if (
-    environment === 'production' &&
-    process.env.DB_NAME === 'family_hub_dev'
-) {
-    throw new Error(
-        'Production cannot use development database'
+        `Cannot load ${envFile}: ${envResult.error.message}`
     );
 }
 
 
 // =====================================================
-// 4. СОЗДАЁМ ПОДКЛЮЧЕНИЕ К POSTGRESQL
+// 4. ПРОВЕРЯЕМ ОБЯЗАТЕЛЬНЫЕ НАСТРОЙКИ
+// =====================================================
+
+const requiredVariables = [
+    'DB_NAME',
+    'DB_USER',
+    'DB_HOST',
+    'DB_PASSWORD'
+];
+
+for (const variable of requiredVariables) {
+    if (!process.env[variable]) {
+        throw new Error(
+            `${variable} is not configured in ${envFile}`
+        );
+    }
+}
+
+
+// =====================================================
+// 5. ЗАЩИЩАЕМ БАЗЫ ДАННЫХ
+// =====================================================
+
+// Проверяем точное имя базы для каждого режима.
+//
+// DEVELOPMENT -> только family_hub_dev
+// PRODUCTION  -> только family_hub
+//
+// Это предотвращает случайное использование
+// семейной базы во время разработки.
+
+if (process.env.DB_NAME !== expectedDatabase) {
+    throw new Error(
+        `${environment} must use ${expectedDatabase}, ` +
+        `but DB_NAME is ${process.env.DB_NAME}`
+    );
+}
+
+
+// =====================================================
+// 6. СОЗДАЁМ ПУЛ ПОДКЛЮЧЕНИЙ
 // =====================================================
 
 const pool = new Pool({
@@ -107,16 +129,44 @@ const pool = new Pool({
 
 
 // =====================================================
-// 5. ПОКАЗЫВАЕМ ВЫБРАННУЮ БАЗУ
+// 7. ПРОВЕРЯЕМ ФАКТИЧЕСКУЮ БАЗУ
 // =====================================================
 
-// Выводим только название окружения и базы.
-// Пароли и секреты никогда не выводим.
+// PostgreSQL дополнительно сообщит, к какой базе
+// установлено реальное соединение.
+//
+// Эта проверка выполняется перед запуском HTTP-сервера
+// через отдельную функцию verifyDatabaseConnection().
 
-console.log(
-    `[Database] ${environment} -> ${process.env.DB_NAME}`
-);
+async function verifyDatabaseConnection() {
+    const result = await pool.query(
+        'SELECT current_database() AS database_name'
+    );
+
+    const actualDatabase = result.rows[0].database_name;
+
+    if (actualDatabase !== expectedDatabase) {
+        throw new Error(
+            `Wrong database connection: ${actualDatabase}`
+        );
+    }
+
+    console.log(
+        `[Database] ${environment} -> ${actualDatabase}`
+    );
+}
 
 
-// Экспортируем подключение для других файлов backend.
+// =====================================================
+// 8. ЭКСПОРТИРУЕМ ПОДКЛЮЧЕНИЕ
+// =====================================================
+
+// Существующий код продолжает использовать pool,
+// как и раньше.
+//
+// Функцию проверки добавляем отдельным свойством,
+// чтобы не ломать текущие импорты.
+
+pool.verifyDatabaseConnection = verifyDatabaseConnection;
+
 module.exports = pool;

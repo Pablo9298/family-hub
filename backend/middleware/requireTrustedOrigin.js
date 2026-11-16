@@ -4,31 +4,48 @@
  * FAMILY HUB — ПРОВЕРКА ORIGIN
  * =====================================================
  *
- * Проверяем источник запросов, изменяющих данные.
+ * Защищаем запросы, которые изменяют данные:
+ * POST, PUT, PATCH, DELETE.
  *
- * GET, HEAD, OPTIONS пропускаем.
+ * DEVELOPMENT:
+ * Frontend работает через localhost:5500.
  *
- * POST, PUT, PATCH, DELETE должны поступать
- * с разрешённого frontend.
+ * PRODUCTION:
+ * Frontend и backend доступны через один
+ * HTTPS-адрес Tailscale.
+ *
+ * Запросы с других сайтов отклоняем.
  *
  * ВАЖНО:
- * Это промежуточная защита для локальной разработки.
- * Перед production добавим полноценную CSRF-защиту.
+ * Это защита на основе Origin.
+ * Дополнительные меры CSRF-защиты и проверки
+ * сессий продолжаем учитывать отдельно.
+ * =====================================================
  */
 
-const TRUSTED_ORIGIN = 'http://localhost:5500';
+// В зависимости от режима выбираем разрешённый
+// адрес frontend без завершающего слеша.
+
+const TRUSTED_ORIGIN =
+    process.env.NODE_ENV === 'production'
+        ? 'https://pablo9298.tail62ffac.ts.net'
+        : 'http://localhost:5500';
+
 
 function requireTrustedOrigin(req, res, next) {
 
-    // Безопасные HTTP-методы не изменяют данные.
+    // Запросы на чтение данных не изменяют
+    // состояние приложения.
     if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
         return next();
     }
 
-    // Получаем Origin браузера.
+    // Браузер передаёт Origin при запросах,
+    // которые изменяют данные.
     const origin = req.get('Origin');
 
-    // Запросы без Origin или с другого сайта отклоняем.
+    // Разрешаем запросы только с доверенного адреса.
+    // Отсутствующий или другой Origin отклоняем.
     if (origin !== TRUSTED_ORIGIN) {
         return res.status(403).json({
             error: 'Forbidden origin'
