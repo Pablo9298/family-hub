@@ -118,7 +118,7 @@ if (process.env.NODE_ENV === 'production') {
  *
  * В development сохраняем существующую схему:
  * frontend — localhost:5500,
- * backend  — localhost:3001.
+ * backend  — localhost:3002.
  * =====================================================
  */
 
@@ -143,7 +143,7 @@ if (process.env.NODE_ENV === 'production') {
 app.use(express.json());
 
 // Разрешаем запросы только с нашего локального frontend.
-// Браузер сможет передавать cookie между портами 5500 и 3001.
+// Браузер сможет передавать cookie между портами 5500 и 3002.
 app.use(cors({
     origin: 'http://localhost:5500',
     credentials: true
@@ -206,9 +206,9 @@ app.use(['/transactions', '/categories'], (req, res) => {
 // 4. НАСТРАИВАЕМ ПОРТ
 // =====================================================
 
-// Backend будет принимать запросы на порту 3001.
-// Например: http://localhost:3001/transactions
-const PORT = 3001;
+// Порт сервера берём из переменных окружения.
+// DEV будет использовать 3002, PROD — 3001.
+const PORT = Number(process.env.PORT || 3001);
 
 
 /*

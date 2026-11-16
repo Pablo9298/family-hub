@@ -6,7 +6,7 @@
  *
  * DEVELOPMENT:
  * Frontend работает на localhost:5500,
- * backend — на localhost:3001.
+ * backend — на localhost:3002.
  *
  * PRODUCTION:
  * Frontend и backend используют один HTTPS-адрес.
